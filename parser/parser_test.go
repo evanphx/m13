@@ -652,5 +652,21 @@ func TestParser(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	n.It("parses a test program with spaces", func() {
+		prog := `
+		import os;
+
+os.stdout().puts("hello m13");`
+
+		lex, err := lex.NewLexer(prog)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		_, err = parser.Parse()
+		require.NoError(t, err)
+	})
+
 	n.Meow()
 }

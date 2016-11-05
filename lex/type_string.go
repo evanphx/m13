@@ -4,9 +4,9 @@ package lex
 
 import "fmt"
 
-const _Type_name = "UnknownTermIntegerStringAtomTrueFalseNilDotWordOpenParenCloseParenCommaEqual"
+const _Type_name = "UnknownTermIntegerStringAtomTrueFalseNilDotWordOpenParenCloseParenCommaEqualIntoOpenBraceCloseBraceSemiNewlineImport"
 
-var _Type_index = [...]uint8{0, 7, 11, 18, 24, 28, 32, 37, 40, 43, 47, 56, 66, 71, 76}
+var _Type_index = [...]uint8{0, 7, 11, 18, 24, 28, 32, 37, 40, 43, 47, 56, 66, 71, 76, 80, 89, 99, 103, 110, 116}
 
 func (i Type) String() string {
 	if i < 0 || i >= Type(len(_Type_index)-1) {

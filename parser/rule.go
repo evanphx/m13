@@ -238,8 +238,6 @@ func (r *RecursiveRule) growLR(n Lexer, p int, m *rrMemo) (RuleValue, bool) {
 	for {
 		n.Rewind(p)
 
-		fmt.Printf("GROW @ %d\n", p)
-
 		ans, ok := r.eval(n)
 		if !ok || n.Mark() <= m.pos {
 			break
@@ -281,6 +279,36 @@ func (nr *NamedRule) Name() string {
 
 type Named interface {
 	Name() string
+}
+
+type TimesRules struct {
+	p    *Parser
+	Rule Rule
+	Min  int
+	Max  int
+}
+
+func (t *TimesRules) Match(n Lexer) (RuleValue, bool) {
+	var cnt int
+
+	var values []RuleValue
+
+	for cnt < t.Max {
+		p := n.Mark()
+
+		rv, ok := t.p.Apply(t.Rule, n)
+		if !ok {
+			n.Rewind(p)
+			break
+		}
+		values = append(values, rv)
+	}
+
+	if cnt < t.Min {
+		return nil, false
+	}
+
+	return values, true
 }
 
 func (p *Parser) Apply(r Rule, n Lexer) (RuleValue, bool) {
@@ -330,6 +358,10 @@ func (r *Rules) Fs(x Rule, f func([]RuleValue) RuleValue) Rule {
 
 func (r *Rules) Star(x Rule) Rule {
 	return &RepeatRule{p: r.Parser, Rule: x, Star: true}
+}
+
+func (r *Rules) Maybe(x Rule) Rule {
+	return &TimesRules{p: r.Parser, Rule: x, Min: 0, Max: 1}
 }
 
 func (r *Rules) Plus(x Rule) Rule {

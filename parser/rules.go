@@ -169,12 +169,12 @@ func (p *Parser) SetupRules() {
 	stmtAnother := r.F(r.Seq(stmtSep, stmt), r.Nth(1))
 
 	stmtList := r.Fs(
-		r.Seq(stmt, r.Star(stmtAnother)),
+		r.Seq(r.Maybe(stmtSep), stmt, r.Star(stmtAnother)),
 		func(rv []RuleValue) RuleValue {
-			if right, ok := rv[1].([]RuleValue); ok {
-				return append([]RuleValue{rv[0]}, right...)
+			if right, ok := rv[2].([]RuleValue); ok {
+				return append([]RuleValue{rv[1]}, right...)
 			} else {
-				return rv[:1]
+				return rv[1:2]
 			}
 		})
 
@@ -234,7 +234,7 @@ func (p *Parser) SetupRules() {
 	stmt.Rule = r.Or(importR, attrAssign, assign, expr)
 
 	p.root = r.Fs(
-		r.Seq(stmtList, r.T(lex.Term)),
+		r.Seq(stmtList, r.Maybe(stmtSep), r.T(lex.Term)),
 		func(rv []RuleValue) RuleValue {
 			blk := rv[0].([]RuleValue)
 			switch len(blk) {
