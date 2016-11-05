@@ -141,6 +141,22 @@ func TestLexer(t *testing.T) {
 		assert.Equal(t, v[1:], x.Value.(string))
 	}
 
+	var opTests = []string{
+		"+",
+		"++",
+	}
+
+	for _, v := range opTests {
+		lex, err := NewLexer(v)
+		require.NoError(t, err)
+
+		x, err := lex.Next()
+		require.NoError(t, err)
+
+		assert.Equal(t, Word, x.Type)
+		assert.Equal(t, v, x.Value.(string))
+	}
+
 	lex, err := NewLexer("true")
 	require.NoError(t, err)
 

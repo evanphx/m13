@@ -1,6 +1,9 @@
 package parser
 
 import (
+	"unicode"
+	"unicode/utf8"
+
 	"github.com/evanphx/m13/ast"
 	"github.com/evanphx/m13/lex"
 )
@@ -164,10 +167,63 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
+	prec := map[string]int{
+		"*":   4,
+		"mul": 4,
+		"/":   4,
+		"div": 4,
+		"+":   3,
+		"add": 3,
+		"-":   3,
+		"sub": 3,
+	}
+
+	getPrec := func(op string) int {
+		if v, ok := prec[op]; ok {
+			return v
+		}
+
+		r, _ := utf8.DecodeRuneInString(op)
+
+		if unicode.IsPunct(r) {
+			if v, ok := prec[string(r)]; ok {
+				return v
+			}
+		}
+
+		return 0
+	}
+
+	op := r.Fs(
+		r.Seq(expr, r.T(lex.Word), expr),
+		func(rv []RuleValue) RuleValue {
+			op := rv[1].(*lex.Value).Value.(string)
+
+			if r, ok := rv[2].(*ast.Op); ok {
+				if getPrec(op) > getPrec(r.Name) {
+					return &ast.Op{
+						Name: r.Name,
+						Left: &ast.Op{
+							Name:  op,
+							Left:  rv[0].(ast.Node),
+							Right: r.Left,
+						},
+						Right: r.Right,
+					}
+				}
+			}
+
+			return &ast.Op{
+				Name:  op,
+				Left:  rv[0].(ast.Node),
+				Right: rv[2].(ast.Node),
+			}
+		})
+
 	expr.Rules = []Rule{
 		lambdaN, lambda1, lambda0,
 		primcallN, primcall0,
-		attrAccess, prim,
+		attrAccess, op, prim,
 	}
 
 	stmt := r.Ref()

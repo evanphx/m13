@@ -80,3 +80,9 @@ type Has struct {
 	Variable string
 	Traits   []string
 }
+
+type Op struct {
+	Name  string
+	Left  Node
+	Right Node
+}

@@ -865,5 +865,179 @@ os.stdout().puts("hello m13");`
 
 		assert.Equal(t, []string{"rw", "locked"}, has.Traits)
 	})
+
+	n.It("parses `3 + 4`", func() {
+		lex, err := lex.NewLexer(`3 + 4`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		op, ok := tree.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "+", op.Name)
+
+		assert.Equal(t, int64(3), op.Left.(*ast.Integer).Value)
+		assert.Equal(t, int64(4), op.Right.(*ast.Integer).Value)
+	})
+
+	n.It("parses `3 ++ 4`", func() {
+		lex, err := lex.NewLexer(`3 ++ 4`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		op, ok := tree.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "++", op.Name)
+
+		assert.Equal(t, int64(3), op.Left.(*ast.Integer).Value)
+		assert.Equal(t, int64(4), op.Right.(*ast.Integer).Value)
+	})
+
+	n.It("parses `3 div 4`", func() {
+		lex, err := lex.NewLexer(`3 div 4`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		op, ok := tree.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "div", op.Name)
+
+		assert.Equal(t, int64(3), op.Left.(*ast.Integer).Value)
+		assert.Equal(t, int64(4), op.Right.(*ast.Integer).Value)
+	})
+
+	n.It("parses `3 + 4 * 2`", func() {
+		lex, err := lex.NewLexer(`3 + 4 * 2`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		op, ok := tree.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "+", op.Name)
+
+		assert.Equal(t, int64(3), op.Left.(*ast.Integer).Value)
+
+		op2, ok := op.Right.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "*", op2.Name)
+
+		assert.Equal(t, int64(4), op2.Left.(*ast.Integer).Value)
+		assert.Equal(t, int64(2), op2.Right.(*ast.Integer).Value)
+	})
+
+	n.It("parses `3 * 4 + 2`", func() {
+		lex, err := lex.NewLexer(`3 * 4 + 2`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		op, ok := tree.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "+", op.Name)
+
+		assert.Equal(t, int64(2), op.Right.(*ast.Integer).Value)
+
+		op2, ok := op.Left.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "*", op2.Name)
+
+		assert.Equal(t, int64(3), op2.Left.(*ast.Integer).Value)
+		assert.Equal(t, int64(4), op2.Right.(*ast.Integer).Value)
+	})
+
+	n.It("parses `3 * 4 + 2 * 5`", func() {
+		lex, err := lex.NewLexer(`3 * 4 + 2 * 5`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		op, ok := tree.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "+", op.Name)
+
+		op2, ok := op.Left.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "*", op2.Name)
+
+		assert.Equal(t, int64(3), op2.Left.(*ast.Integer).Value)
+		assert.Equal(t, int64(4), op2.Right.(*ast.Integer).Value)
+
+		op3, ok := op.Right.(*ast.Op)
+		require.True(t, ok, "%T", op.Right)
+
+		assert.Equal(t, "*", op3.Name)
+
+		assert.Equal(t, int64(2), op3.Left.(*ast.Integer).Value)
+		assert.Equal(t, int64(5), op3.Right.(*ast.Integer).Value)
+	})
+
+	n.NIt("parses `3 ** 4 ++ 2 ** 5`", func() {
+		lex, err := lex.NewLexer(`3 ** 4 ++ 2 ** 5`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		op, ok := tree.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "++", op.Name)
+
+		op2, ok := op.Left.(*ast.Op)
+		require.True(t, ok)
+
+		assert.Equal(t, "**", op2.Name)
+
+		assert.Equal(t, int64(3), op2.Left.(*ast.Integer).Value)
+		assert.Equal(t, int64(4), op2.Right.(*ast.Integer).Value)
+
+		op3, ok := op.Right.(*ast.Op)
+		require.True(t, ok, "%T", op.Right)
+
+		assert.Equal(t, "**", op3.Name)
+
+		assert.Equal(t, int64(2), op3.Left.(*ast.Integer).Value)
+		assert.Equal(t, int64(5), op3.Right.(*ast.Integer).Value)
+	})
+
 	n.Meow()
 }
