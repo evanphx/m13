@@ -5,8 +5,34 @@ import (
 	"github.com/evanphx/m13/lex"
 )
 
+func convert(rv []RuleValue) []ast.Node {
+	var nodes []ast.Node
+
+	for _, r := range rv {
+		nodes = append(nodes, r.(ast.Node))
+	}
+
+	return nodes
+}
+
 func (p *Parser) SetupRules() {
 	var r Rules
+
+	expr := r.Rec()
+
+	exprSep := r.Plus(r.Or(r.T(lex.Semi), r.T(lex.Newline)))
+
+	exprAnother := r.F(r.Seq(exprSep, expr), r.Nth(1))
+
+	exprList := r.Fs(
+		r.Seq(expr, r.Star(exprAnother)),
+		func(rv []RuleValue) RuleValue {
+			if right, ok := rv[1].([]RuleValue); ok {
+				return append([]RuleValue{rv[0]}, right...)
+			} else {
+				return rv[:1]
+			}
+		})
 
 	prim := r.Or(
 		r.Type(lex.Integer, func(lv *lex.Value) RuleValue {
@@ -32,84 +58,8 @@ func (p *Parser) SetupRules() {
 		}),
 	)
 
-	expr := r.Ref()
-
-	arg := expr
-
-	primcallNA := r.Fs(
-		r.Seq(prim, r.T(lex.Dot), r.T(lex.Word),
-			r.T(lex.OpenParen), r.T(lex.CloseParen)),
-		func(rv []RuleValue) RuleValue {
-			return &ast.Call{
-				Receiver:   rv[0].(ast.Node),
-				MethodName: rv[2].(*lex.Value).Value.(string),
-			}
-		})
-
-	anotherArg := r.F(r.Seq(r.T(lex.Comma), arg), r.Nth(1))
-
-	argList := r.Fs(
-		r.Seq(arg, r.Star(anotherArg)),
-		func(rv []RuleValue) RuleValue {
-			if right, ok := rv[1].([]RuleValue); ok {
-				return append([]RuleValue{rv[0]}, right...)
-			} else {
-				return rv[:1]
-			}
-		})
-
-	convert := func(rv []RuleValue) []ast.Node {
-		var nodes []ast.Node
-
-		for _, r := range rv {
-			nodes = append(nodes, r.(ast.Node))
-		}
-
-		return nodes
-	}
-
-	primcallA := r.Fs(
-		r.Seq(prim, r.T(lex.Dot), r.T(lex.Word),
-			r.T(lex.OpenParen), argList, r.T(lex.CloseParen)),
-		func(rv []RuleValue) RuleValue {
-			return &ast.Call{
-				Receiver:   rv[0].(ast.Node),
-				MethodName: rv[2].(*lex.Value).Value.(string),
-				Args:       convert(rv[4].([]RuleValue)),
-			}
-		})
-
-	primcall := r.Or(primcallA, primcallNA)
-
-	chainedNA := r.Fs(
-		r.Seq(
-			primcall, r.T(lex.Dot), r.T(lex.Word),
-			r.T(lex.OpenParen), r.T(lex.CloseParen)),
-		func(rv []RuleValue) RuleValue {
-			return &ast.Call{
-				Receiver:   rv[0].(ast.Node),
-				MethodName: rv[2].(*lex.Value).Value.(string),
-			}
-		})
-
-	chainedA := r.Fs(
-		r.Seq(
-			primcall, r.T(lex.Dot), r.T(lex.Word),
-			r.T(lex.OpenParen), argList, r.T(lex.CloseParen)),
-		func(rv []RuleValue) RuleValue {
-			return &ast.Call{
-				Receiver:   rv[0].(ast.Node),
-				MethodName: rv[2].(*lex.Value).Value.(string),
-				Args:       convert(rv[4].([]RuleValue)),
-			}
-		})
-
-	chained := r.Or(chainedA, chainedNA)
-
-	attrRecv := r.Or(primcall, prim)
-
 	attrAccess := r.Fs(
-		r.Seq(attrRecv, r.T(lex.Dot), r.T(lex.Word)),
+		r.Seq(expr, r.T(lex.Dot), r.T(lex.Word)),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Attribute{
 				Receiver: rv[0].(ast.Node),
@@ -117,38 +67,36 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	attrAssign := r.Fs(
-		r.Seq(attrRecv, r.T(lex.Dot), r.T(lex.Word), r.T(lex.Equal), expr),
+	primcall0 := r.Fs(
+		r.Seq(expr, r.T(lex.Dot), r.T(lex.Word),
+			r.T(lex.OpenParen), r.T(lex.CloseParen)),
 		func(rv []RuleValue) RuleValue {
-			return &ast.AttributeAssign{
-				Receiver: rv[0].(ast.Node),
-				Name:     rv[2].(*lex.Value).Value.(string),
-				Value:    rv[4].(ast.Node),
+			return &ast.Call{
+				Receiver:   rv[0].(ast.Node),
+				MethodName: rv[2].(*lex.Value).Value.(string),
 			}
 		})
 
-	attr := r.Or(attrAssign, attrAccess)
+	anotherArg := r.F(r.Seq(r.T(lex.Comma), expr), r.Nth(1))
 
-	assign := r.Fs(
-		r.Seq(r.T(lex.Word), r.T(lex.Equal), expr),
-		func(rv []RuleValue) RuleValue {
-			return &ast.Assign{
-				Name:  rv[0].(*lex.Value).Value.(string),
-				Value: rv[2],
-			}
-		})
-
-	exprSep := r.Plus(r.Or(r.T(lex.Semi), r.T(lex.Newline)))
-
-	exprAnother := r.F(r.Seq(exprSep, expr), r.Nth(1))
-
-	exprList := r.Fs(
-		r.Seq(expr, r.Star(exprAnother)),
+	argList := r.Fs(
+		r.Seq(expr, r.Star(anotherArg)),
 		func(rv []RuleValue) RuleValue {
 			if right, ok := rv[1].([]RuleValue); ok {
 				return append([]RuleValue{rv[0]}, right...)
 			} else {
 				return rv[:1]
+			}
+		})
+
+	primcallN := r.Fs(
+		r.Seq(expr, r.T(lex.Dot), r.T(lex.Word),
+			r.T(lex.OpenParen), argList, r.T(lex.CloseParen)),
+		func(rv []RuleValue) RuleValue {
+			return &ast.Call{
+				Receiver:   rv[0].(ast.Node),
+				MethodName: rv[2].(*lex.Value).Value.(string),
+				Args:       convert(rv[4].([]RuleValue)),
 			}
 		})
 
@@ -162,7 +110,7 @@ func (p *Parser) SetupRules() {
 
 	lambdaBody := r.Or(braceBody, expr)
 
-	lambdaNA := r.Fs(
+	lambda0 := r.Fs(
 		r.Seq(r.T(lex.Into), lambdaBody),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Lambda{
@@ -170,7 +118,7 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	lambda1A := r.Fs(
+	lambda1 := r.Fs(
 		r.Seq(r.T(lex.Word), r.T(lex.Into), lambdaBody),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Lambda{
@@ -193,7 +141,7 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	lambdaMA := r.Fs(
+	lambdaN := r.Fs(
 		r.Seq(r.T(lex.OpenParen), lambdaArgList, r.T(lex.CloseParen),
 			r.T(lex.Into), lambdaBody),
 		func(rv []RuleValue) RuleValue {
@@ -208,7 +156,56 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	lambda := r.Or(lambdaMA, lambda1A, lambdaNA)
+	expr.Rules = []Rule{
+		lambdaN, lambda1, lambda0,
+		primcallN, primcall0,
+		attrAccess, prim,
+	}
+
+	stmt := r.Ref()
+
+	stmtSep := r.Plus(r.Or(r.T(lex.Semi), r.T(lex.Newline)))
+
+	stmtAnother := r.F(r.Seq(stmtSep, stmt), r.Nth(1))
+
+	stmtList := r.Fs(
+		r.Seq(stmt, r.Star(stmtAnother)),
+		func(rv []RuleValue) RuleValue {
+			if right, ok := rv[1].([]RuleValue); ok {
+				return append([]RuleValue{rv[0]}, right...)
+			} else {
+				return rv[:1]
+			}
+		})
+
+	attrAssign := r.Fs(
+		r.Seq(expr, r.T(lex.Equal), expr),
+		func(rv []RuleValue) RuleValue {
+			switch sv := rv[0].(type) {
+			case *ast.Variable:
+				return &ast.Assign{
+					Name:  sv.Name,
+					Value: rv[2],
+				}
+			case *ast.Attribute:
+				return &ast.AttributeAssign{
+					Receiver: sv.Receiver,
+					Name:     sv.Name,
+					Value:    rv[2].(ast.Node),
+				}
+			default:
+				panic("can't assign that")
+			}
+		})
+
+	assign := r.Fs(
+		r.Seq(r.T(lex.Word), r.T(lex.Equal), expr),
+		func(rv []RuleValue) RuleValue {
+			return &ast.Assign{
+				Name:  rv[0].(*lex.Value).Value.(string),
+				Value: rv[2],
+			}
+		})
 
 	importRest := r.F(r.Seq(r.T(lex.Dot), r.T(lex.Word)), r.Nth(1))
 
@@ -234,10 +231,10 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	expr.Rule = r.Or(importR, assign, lambda, chained, attr, primcall, prim)
+	stmt.Rule = r.Or(importR, attrAssign, assign, expr)
 
 	p.root = r.Fs(
-		r.Seq(exprList, r.T(lex.Term)),
+		r.Seq(stmtList, r.T(lex.Term)),
 		func(rv []RuleValue) RuleValue {
 			blk := rv[0].([]RuleValue)
 			switch len(blk) {
