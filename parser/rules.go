@@ -47,6 +47,9 @@ func (p *Parser) SetupRules() {
 		r.Type(lex.Word, func(lv *lex.Value) RuleValue {
 			return &ast.Variable{lv.Value.(string)}
 		}),
+		r.Type(lex.IVar, func(lv *lex.Value) RuleValue {
+			return &ast.IVar{lv.Value.(string)}
+		}),
 		r.Type(lex.True, func(lv *lex.Value) RuleValue {
 			return &ast.True{}
 		}),
@@ -252,8 +255,16 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
+	classBody := r.Fs(
+		r.Seq(r.T(lex.OpenBrace), stmtList, r.T(lex.CloseBrace)),
+		func(rv []RuleValue) RuleValue {
+			return &ast.Block{
+				Expressions: convert(rv[1].([]RuleValue)),
+			}
+		})
+
 	class := r.Fs(
-		r.Seq(r.T(lex.Class), r.T(lex.Word), braceBody),
+		r.Seq(r.T(lex.Class), r.T(lex.Word), classBody),
 		func(rv []RuleValue) RuleValue {
 			return &ast.ClassDefinition{
 				Name: rv[1].(*lex.Value).Value.(string),
@@ -265,7 +276,40 @@ func (p *Parser) SetupRules() {
 		return &ast.Comment{Comment: rv.(*lex.Value).Value.(string)}
 	})
 
-	stmt.Rule = r.Or(comment, importR, class, def, attrAssign, assign, expr)
+	is := r.Fs(
+		r.Seq(r.T(lex.Is), r.T(lex.Word)),
+		func(rv []RuleValue) RuleValue {
+			return rv[1].(*lex.Value).Value.(string)
+		})
+
+	hasTraits := r.F(
+		r.Plus(is),
+		func(rv RuleValue) RuleValue {
+			var traits []string
+
+			for _, r := range rv.([]RuleValue) {
+				traits = append(traits, r.(string))
+			}
+
+			return traits
+		})
+
+	has := r.Fs(
+		r.Seq(r.T(lex.Has), r.T(lex.IVar), r.Maybe(hasTraits)),
+		func(rv []RuleValue) RuleValue {
+			var traits []string
+
+			if x, ok := rv[2].([]string); ok {
+				traits = x
+			}
+
+			return &ast.Has{
+				Variable: rv[1].(*lex.Value).Value.(string),
+				Traits:   traits,
+			}
+		})
+
+	stmt.Rule = r.Or(comment, importR, class, def, has, attrAssign, assign, expr)
 
 	p.root = r.Fs(
 		r.Seq(stmtList, r.Maybe(stmtSep), r.T(lex.Term)),

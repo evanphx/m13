@@ -71,3 +71,12 @@ type ClassDefinition struct {
 type Comment struct {
 	Comment string
 }
+
+type IVar struct {
+	Name string
+}
+
+type Has struct {
+	Variable string
+	Traits   []string
+}

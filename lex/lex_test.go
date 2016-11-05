@@ -94,6 +94,8 @@ func TestLexer(t *testing.T) {
 		{"import", Import},
 		{"def", Def},
 		{"class", Class},
+		{"has", Has},
+		{"is", Is},
 	}
 
 	for _, st := range keywordTests {
@@ -122,6 +124,21 @@ func TestLexer(t *testing.T) {
 
 		assert.Equal(t, Word, x.Type)
 		assert.Equal(t, v, x.Value.(string))
+	}
+
+	var ivarTests = []string{
+		"@foo",
+	}
+
+	for _, v := range ivarTests {
+		lex, err := NewLexer(v)
+		require.NoError(t, err)
+
+		x, err := lex.Next()
+		require.NoError(t, err)
+
+		assert.Equal(t, IVar, x.Type)
+		assert.Equal(t, v[1:], x.Value.(string))
 	}
 
 	lex, err := NewLexer("true")

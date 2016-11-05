@@ -48,6 +48,9 @@ const (
 	Def
 	Class
 	Comment
+	IVar
+	Has
+	Is
 )
 
 type Value struct {
@@ -112,6 +115,15 @@ func (l *Lexer) scanComment() (*Value, error) {
 	return &Value{Type: Comment, Value: buf.String()}, nil
 }
 
+func (l *Lexer) scanNewWord() (string, error) {
+	r, _, err := l.r.ReadRune()
+	if err != nil {
+		return "", err
+	}
+
+	return l.scanWord(r)
+}
+
 func (l *Lexer) scanWord(r rune) (string, error) {
 	var buf bytes.Buffer
 
@@ -174,6 +186,8 @@ var Keywords = map[string]Type{
 	"import": Import,
 	"def":    Def,
 	"class":  Class,
+	"has":    Has,
+	"is":     Is,
 }
 
 func (l *Lexer) scanBare(r rune) (*Value, error) {
@@ -389,6 +403,13 @@ func (l *Lexer) Next() (*Value, error) {
 
 		l.r.UnreadRune()
 		return &Value{Type: Equal}, nil
+	case '@':
+		word, err := l.scanNewWord()
+		if err != nil {
+			return nil, err
+		}
+
+		return &Value{Type: IVar, Value: word}, nil
 	case '#':
 		return l.scanComment()
 	default:

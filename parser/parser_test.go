@@ -774,5 +774,96 @@ os.stdout().puts("hello m13");`
 		assert.Equal(t, " hello, newman", def.Comment)
 	})
 
+	n.It("parser an ivar", func() {
+		lex, err := lex.NewLexer(`@age`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.IVar)
+		require.True(t, ok)
+
+		assert.Equal(t, "age", def.Name)
+	})
+
+	n.It("parser a class definition with ivar decls", func() {
+		lex, err := lex.NewLexer(`class Blah { has @age }`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.ClassDefinition)
+		require.True(t, ok)
+
+		assert.Equal(t, "Blah", def.Name)
+
+		blk, ok := def.Body.(*ast.Block)
+		require.True(t, ok)
+
+		has, ok := blk.Expressions[0].(*ast.Has)
+		require.True(t, ok)
+
+		assert.Equal(t, "age", has.Variable)
+	})
+
+	n.It("parser a class definition with ivar decls and trait", func() {
+		lex, err := lex.NewLexer(`class Blah { has @age is rw }`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.ClassDefinition)
+		require.True(t, ok)
+
+		assert.Equal(t, "Blah", def.Name)
+
+		blk, ok := def.Body.(*ast.Block)
+		require.True(t, ok)
+
+		has, ok := blk.Expressions[0].(*ast.Has)
+		require.True(t, ok)
+
+		assert.Equal(t, "age", has.Variable)
+
+		assert.Equal(t, []string{"rw"}, has.Traits)
+	})
+
+	n.It("parser a class definition with ivar decls and traits", func() {
+		lex, err := lex.NewLexer(`class Blah { has @.age is rw is locked}`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.ClassDefinition)
+		require.True(t, ok)
+
+		assert.Equal(t, "Blah", def.Name)
+
+		blk, ok := def.Body.(*ast.Block)
+		require.True(t, ok)
+
+		has, ok := blk.Expressions[0].(*ast.Has)
+		require.True(t, ok)
+
+		assert.Equal(t, ".age", has.Variable)
+
+		assert.Equal(t, []string{"rw", "locked"}, has.Traits)
+	})
 	n.Meow()
 }
