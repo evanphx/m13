@@ -129,10 +129,10 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	lambdaAnotherArg := r.F(r.Seq(r.T(lex.Comma), r.T(lex.Word)), r.Nth(1))
+	argDefListAnother := r.F(r.Seq(r.T(lex.Comma), r.T(lex.Word)), r.Nth(1))
 
-	lambdaArgList := r.Fs(
-		r.Seq(r.T(lex.Word), r.Star(lambdaAnotherArg)),
+	argDefListInner := r.Fs(
+		r.Seq(r.T(lex.Word), r.Star(argDefListAnother)),
 		func(rv []RuleValue) RuleValue {
 			if right, ok := rv[1].([]RuleValue); ok {
 				return append([]RuleValue{rv[0]}, right...)
@@ -141,18 +141,23 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	lambdaN := r.Fs(
-		r.Seq(r.T(lex.OpenParen), lambdaArgList, r.T(lex.CloseParen),
-			r.T(lex.Into), lambdaBody),
+	argDefList := r.Fs(
+		r.Seq(r.T(lex.OpenParen), argDefListInner, r.T(lex.CloseParen)),
 		func(rv []RuleValue) RuleValue {
 			var args []string
 			for _, arg := range rv[1].([]RuleValue) {
 				args = append(args, arg.(*lex.Value).Value.(string))
 			}
 
+			return args
+		})
+
+	lambdaN := r.Fs(
+		r.Seq(argDefList, r.T(lex.Into), lambdaBody),
+		func(rv []RuleValue) RuleValue {
 			return &ast.Lambda{
-				Expr: rv[4].(ast.Node),
-				Args: args,
+				Expr: rv[2].(ast.Node),
+				Args: rv[0].([]string),
 			}
 		})
 
@@ -231,7 +236,36 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	stmt.Rule = r.Or(importR, attrAssign, assign, expr)
+	def := r.Fs(
+		r.Seq(r.T(lex.Def), r.T(lex.Word), r.Maybe(argDefList), braceBody),
+		func(rv []RuleValue) RuleValue {
+			var args []string
+
+			if x, ok := rv[2].([]string); ok {
+				args = x
+			}
+
+			return &ast.Definition{
+				Name:      rv[1].(*lex.Value).Value.(string),
+				Arguments: args,
+				Body:      rv[3].(ast.Node),
+			}
+		})
+
+	class := r.Fs(
+		r.Seq(r.T(lex.Class), r.T(lex.Word), braceBody),
+		func(rv []RuleValue) RuleValue {
+			return &ast.ClassDefinition{
+				Name: rv[1].(*lex.Value).Value.(string),
+				Body: rv[2].(ast.Node),
+			}
+		})
+
+	comment := r.F(r.T(lex.Comment), func(rv RuleValue) RuleValue {
+		return &ast.Comment{Comment: rv.(*lex.Value).Value.(string)}
+	})
+
+	stmt.Rule = r.Or(comment, importR, class, def, attrAssign, assign, expr)
 
 	p.root = r.Fs(
 		r.Seq(stmtList, r.Maybe(stmtSep), r.T(lex.Term)),

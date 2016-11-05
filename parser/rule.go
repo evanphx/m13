@@ -308,6 +308,14 @@ func (t *TimesRules) Match(n Lexer) (RuleValue, bool) {
 		return nil, false
 	}
 
+	if t.Max == 1 {
+		if len(values) == 1 {
+			return values[0], true
+		} else {
+			return nil, true
+		}
+	}
+
 	return values, true
 }
 

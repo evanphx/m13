@@ -56,3 +56,18 @@ type AttributeAssign struct {
 	Name     string
 	Value    Node
 }
+
+type Definition struct {
+	Name      string
+	Arguments []string
+	Body      Node
+}
+
+type ClassDefinition struct {
+	Name string
+	Body Node
+}
+
+type Comment struct {
+	Comment string
+}

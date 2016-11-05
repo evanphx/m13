@@ -45,6 +45,9 @@ const (
 	Semi
 	Newline
 	Import
+	Def
+	Class
+	Comment
 )
 
 type Value struct {
@@ -86,6 +89,28 @@ func NewLexer(in string) (*Lexer, error) {
 }
 
 var ErrUnknownRune = errors.New("unknown rune")
+
+func (l *Lexer) scanComment() (*Value, error) {
+	var buf bytes.Buffer
+
+	for {
+		r, _, err := l.r.ReadRune()
+		if err != nil {
+			if err != io.EOF {
+				return nil, err
+			}
+			break
+		}
+
+		if r == '\n' {
+			break
+		}
+
+		buf.WriteRune(r)
+	}
+
+	return &Value{Type: Comment, Value: buf.String()}, nil
+}
 
 func (l *Lexer) scanWord(r rune) (string, error) {
 	var buf bytes.Buffer
@@ -147,6 +172,8 @@ var Keywords = map[string]Type{
 	"false":  False,
 	"nil":    Nil,
 	"import": Import,
+	"def":    Def,
+	"class":  Class,
 }
 
 func (l *Lexer) scanBare(r rune) (*Value, error) {
@@ -362,6 +389,8 @@ func (l *Lexer) Next() (*Value, error) {
 
 		l.r.UnreadRune()
 		return &Value{Type: Equal}, nil
+	case '#':
+		return l.scanComment()
 	default:
 		return l.scanBare(r)
 	}

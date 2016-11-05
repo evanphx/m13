@@ -92,6 +92,8 @@ func TestLexer(t *testing.T) {
 		{";", Semi},
 		{"\n", Newline},
 		{"import", Import},
+		{"def", Def},
+		{"class", Class},
 	}
 
 	for _, st := range keywordTests {
@@ -172,7 +174,17 @@ func TestLexerEdge(t *testing.T) {
 
 		assert.Equal(t, Word, v.Type)
 		assert.Equal(t, "b", v.Value.(string))
+	})
 
+	n.It("ignores space", func() {
+		lex, err := NewLexer(" # blah")
+		require.NoError(t, err)
+
+		v, err := lex.Next()
+		require.NoError(t, err)
+
+		assert.Equal(t, Comment, v.Type)
+		assert.Equal(t, " blah", v.Value.(string))
 	})
 
 	n.Meow()

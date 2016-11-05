@@ -668,5 +668,111 @@ os.stdout().puts("hello m13");`
 		require.NoError(t, err)
 	})
 
+	n.It("parses a method definition with no args", func() {
+		lex, err := lex.NewLexer(`def foo { 1 }`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.Definition)
+		require.True(t, ok)
+
+		assert.Equal(t, "foo", def.Name)
+
+		assert.Equal(t, 0, len(def.Arguments))
+
+		blk, ok := def.Body.(*ast.Block)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(1), blk.Expressions[0].(*ast.Integer).Value)
+	})
+
+	n.It("parses a method definition with 2 args", func() {
+		lex, err := lex.NewLexer(`def foo(a,b) { 1 }`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.Definition)
+		require.True(t, ok)
+
+		assert.Equal(t, "foo", def.Name)
+
+		assert.Equal(t, []string{"a", "b"}, def.Arguments)
+
+		blk, ok := def.Body.(*ast.Block)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(1), blk.Expressions[0].(*ast.Integer).Value)
+	})
+
+	n.It("parses a method definition with 1 arg", func() {
+		lex, err := lex.NewLexer(`def foo(a) { 1 }`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.Definition)
+		require.True(t, ok)
+
+		assert.Equal(t, "foo", def.Name)
+
+		assert.Equal(t, []string{"a"}, def.Arguments)
+
+		blk, ok := def.Body.(*ast.Block)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(1), blk.Expressions[0].(*ast.Integer).Value)
+	})
+
+	n.It("parser a class definition", func() {
+		lex, err := lex.NewLexer(`class Blah { 1 }`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.ClassDefinition)
+		require.True(t, ok)
+
+		assert.Equal(t, "Blah", def.Name)
+
+		blk, ok := def.Body.(*ast.Block)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(1), blk.Expressions[0].(*ast.Integer).Value)
+	})
+
+	n.It("parses a comment", func() {
+		lex, err := lex.NewLexer(`# hello, newman`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.Comment)
+		require.True(t, ok)
+
+		assert.Equal(t, " hello, newman", def.Comment)
+	})
+
 	n.Meow()
 }
