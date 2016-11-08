@@ -144,6 +144,9 @@ func TestLexer(t *testing.T) {
 	var opTests = []string{
 		"+",
 		"++",
+		">",
+		"<",
+		"<+>",
 	}
 
 	for _, v := range opTests {

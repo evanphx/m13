@@ -5,6 +5,7 @@ type Op int8
 const (
 	Noop     Op = 0
 	StoreInt Op = 1
+	CopyReg  Op = 2
 )
 
 type Instruction int64
@@ -13,6 +14,8 @@ const (
 	OpMask    = 0xFF
 	Reg0Shift = 8
 	Reg0Mask  = 0xFF
+	Reg1Shift = 16
+	Reg1Mask  = 0xFF
 	DataShift = 16
 )
 
@@ -22,6 +25,10 @@ func (i Instruction) Op() Op {
 
 func (i Instruction) R0() int {
 	return int((i >> Reg0Shift) & Reg0Mask)
+}
+
+func (i Instruction) R1() int {
+	return int((i >> Reg1Shift) & Reg1Mask)
 }
 
 func (i Instruction) Data() int64 {
@@ -36,6 +43,16 @@ func Store(reg int, i Int) Instruction {
 	out |= Instruction(StoreInt)
 	out |= (Instruction(reg) << Reg0Shift)
 	out |= (Instruction(i) << DataShift)
+
+	return out
+}
+
+func StoreReg(dest, src int) Instruction {
+	var out Instruction
+
+	out |= Instruction(CopyReg)
+	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(src) << Reg1Shift)
 
 	return out
 }
