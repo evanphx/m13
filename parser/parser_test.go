@@ -1007,7 +1007,7 @@ os.stdout().puts("hello m13");`
 		assert.Equal(t, int64(5), op3.Right.(*ast.Integer).Value)
 	})
 
-	n.NIt("parses `3 ** 4 ++ 2 ** 5`", func() {
+	n.It("parses `3 ** 4 ++ 2 ** 5`", func() {
 		lex, err := lex.NewLexer(`3 ** 4 ++ 2 ** 5`)
 		require.NoError(t, err)
 

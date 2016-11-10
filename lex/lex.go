@@ -135,7 +135,7 @@ func (l *Lexer) scanWord(r rune) (string, error) {
 			break
 		}
 
-		cont := unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '+' || r == '<' || r == '>'
+		cont := unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '+' || r == '<' || r == '>' || r == '*'
 
 		if !cont {
 			l.r.UnreadRune()
