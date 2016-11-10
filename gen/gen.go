@@ -57,6 +57,31 @@ func (g *Generator) Generate(gn ast.Node) error {
 		g.literals = append(g.literals, n.Name)
 
 		g.seq = append(g.seq, insn.CallOp(g.sp, g.sp, idx))
+	case *ast.Block:
+		for _, ex := range n.Expressions {
+			err := g.Generate(ex)
+			if err != nil {
+				return err
+			}
+		}
+	case *ast.If:
+		err := g.Generate(n.Cond)
+		if err != nil {
+			return err
+		}
+
+		patchSp := g.sp
+
+		patchPos := len(g.seq)
+
+		g.seq = append(g.seq, insn.GotoIfFalse(patchSp, 0))
+
+		err = g.Generate(n.Body)
+		if err != nil {
+			return err
+		}
+
+		g.seq[patchPos] = insn.GotoIfFalse(patchSp, len(g.seq))
 	default:
 		return fmt.Errorf("Unhandled ast type: %T", gn)
 	}

@@ -1,5 +1,6 @@
 package insn
 
+//go:generate stringer -type=Op
 type Op int8
 
 const (
@@ -7,6 +8,9 @@ const (
 	StoreInt Op = 1
 	CopyReg  Op = 2
 	CallN    Op = 3
+	Reset    Op = 4
+	Return   Op = 5
+	GIF      Op = 6
 )
 
 type Instruction int64
@@ -76,6 +80,15 @@ func StoreReg(dest, src int) Instruction {
 	return out
 }
 
+func StoreNil(dest int) Instruction {
+	var out Instruction
+
+	out |= Instruction(Reset)
+	out |= (Instruction(dest) << Reg0Shift)
+
+	return out
+}
+
 func CallOp(dest, base, lit int) Instruction {
 	var out Instruction
 
@@ -86,5 +99,14 @@ func CallOp(dest, base, lit int) Instruction {
 	out |= (Instruction(1) << Rest2Shift)
 
 	return out
+}
 
+func GotoIfFalse(reg int, pos int) Instruction {
+	var out Instruction
+
+	out |= Instruction(GIF)
+	out |= (Instruction(reg) << Reg0Shift)
+	out |= (Instruction(pos) << DataShift)
+
+	return out
 }

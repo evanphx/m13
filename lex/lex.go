@@ -51,6 +51,7 @@ const (
 	IVar
 	Has
 	Is
+	If
 )
 
 type Value struct {
@@ -188,6 +189,7 @@ var Keywords = map[string]Type{
 	"class":  Class,
 	"has":    Has,
 	"is":     Is,
+	"if":     If,
 }
 
 func (l *Lexer) scanBare(r rune) (*Value, error) {

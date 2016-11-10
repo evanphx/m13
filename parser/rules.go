@@ -365,7 +365,16 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	stmt.Rule = r.Or(comment, importR, class, def, has, attrAssign, assign, expr)
+	ifr := r.Fs(
+		r.Seq(r.T(lex.If), expr, braceBody),
+		func(rv []RuleValue) RuleValue {
+			return &ast.If{
+				Cond: rv[1],
+				Body: rv[2],
+			}
+		})
+
+	stmt.Rule = r.Or(comment, importR, class, def, has, ifr, attrAssign, assign, expr)
 
 	p.root = r.Fs(
 		r.Seq(stmtList, r.Maybe(stmtSep), r.T(lex.Term)),

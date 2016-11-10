@@ -89,5 +89,32 @@ func TestVM(t *testing.T) {
 		assert.Equal(t, builtin.I64(7), val)
 	})
 
+	n.It("jumps over a condition body", func() {
+		var seq []insn.Instruction
+
+		seq = append(seq, insn.Store(0, insn.Int(3)))
+		seq = append(seq, insn.StoreNil(1))
+		seq = append(seq, insn.GotoIfFalse(1, 4))
+		seq = append(seq, insn.Store(0, insn.Int(4)))
+		seq = append(seq, insn.Instruction(insn.Noop))
+
+		ctx := &ExecuteContext{
+			NumRegs:  2,
+			Sequence: seq,
+		}
+
+		vm, err := NewVM()
+		require.NoError(t, err)
+
+		err = vm.ExecuteContext(ctx)
+		require.NoError(t, err)
+
+		val, ok := vm.reg[0].(builtin.I64)
+		require.True(t, ok)
+
+		assert.Equal(t, builtin.I64(3), val)
+
+	})
+
 	n.Meow()
 }

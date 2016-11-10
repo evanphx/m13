@@ -1039,5 +1039,32 @@ os.stdout().puts("hello m13");`
 		assert.Equal(t, int64(5), op3.Right.(*ast.Integer).Value)
 	})
 
+	n.It("parses an if", func() {
+		lex, err := lex.NewLexer(`if a { b }`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		ift, ok := tree.(*ast.If)
+		require.True(t, ok)
+
+		cond, ok := ift.Cond.(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", cond.Name)
+
+		body, ok := ift.Body.(*ast.Block)
+		require.True(t, ok)
+
+		v, ok := body.Expressions[0].(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "b", v.Name)
+	})
+
 	n.Meow()
 }

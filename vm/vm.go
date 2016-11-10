@@ -46,8 +46,19 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 		vm.reg = make([]value.Value, ctx.NumRegs)
 	}
 
-	for _, i := range ctx.Sequence {
+	max := len(ctx.Sequence)
+
+	var ip int
+	for ip < max {
+		i := ctx.Sequence[ip]
+
+		ip++
+
 		switch i.Op() {
+		case insn.Noop:
+			// nothing
+		case insn.Reset:
+			vm.reg[i.R0()] = nil
 		case insn.StoreInt:
 			vm.reg[i.R0()] = builtin.MakeI64(i.Data())
 		case insn.CopyReg:
@@ -63,6 +74,10 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 			}
 
 			vm.reg[i.R0()] = res
+		case insn.GIF:
+			if vm.reg[i.R0()] == nil {
+				ip = int(i.Data())
+			}
 		default:
 			panic("unknown op")
 		}

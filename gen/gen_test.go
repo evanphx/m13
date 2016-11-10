@@ -101,5 +101,44 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, "+", g.literals[0])
 	})
 
+	n.It("generates bytecode for an if", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		tree := &ast.If{
+			Cond: &ast.Integer{Value: 3},
+			Body: &ast.Block{
+				Expressions: []ast.Node{
+					&ast.Integer{Value: 4},
+				},
+			},
+		}
+
+		err = g.Generate(tree)
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		require.Equal(t, 3, len(seq))
+
+		i := seq[0]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, int64(3), i.Data())
+
+		i = seq[1]
+
+		assert.Equal(t, insn.GIF, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, int64(3), i.Data())
+
+		i = seq[2]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, int64(4), i.Data())
+	})
+
 	n.Meow()
 }

@@ -86,3 +86,8 @@ type Op struct {
 	Left  Node
 	Right Node
 }
+
+type If struct {
+	Cond Node
+	Body Node
+}

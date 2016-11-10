@@ -96,6 +96,7 @@ func TestLexer(t *testing.T) {
 		{"class", Class},
 		{"has", Has},
 		{"is", Is},
+		{"if", If},
 	}
 
 	for _, st := range keywordTests {
