@@ -34,3 +34,39 @@ func (vm *VM) ExecuteSeq(seq []insn.Instruction) error {
 
 	return nil
 }
+
+type ExecuteContext struct {
+	NumRegs  int
+	Literals []string
+	Sequence []insn.Instruction
+}
+
+func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
+	if len(vm.reg) < ctx.NumRegs {
+		vm.reg = make([]value.Value, ctx.NumRegs)
+	}
+
+	for _, i := range ctx.Sequence {
+		switch i.Op() {
+		case insn.StoreInt:
+			vm.reg[i.R0()] = builtin.MakeI64(i.Data())
+		case insn.CopyReg:
+			vm.reg[i.R0()] = vm.reg[i.R1()]
+		case insn.CallN:
+			res, err := vm.invokeN(
+				vm.reg[i.R1()],
+				vm.reg[i.R1()+1:int64(i.R1())+i.Rest2()+1],
+				ctx.Literals[i.R2()],
+			)
+			if err != nil {
+				return err
+			}
+
+			vm.reg[i.R0()] = res
+		default:
+			panic("unknown op")
+		}
+	}
+
+	return nil
+}

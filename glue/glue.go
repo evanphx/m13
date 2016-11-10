@@ -48,9 +48,28 @@ type arg struct {
 
 type method struct {
 	Name     string
+	GoName   string
 	NumArgs  int
 	RecvType string
 	Args     []*arg
+}
+
+func (m *method) Parse(text string) {
+	parts := strings.Split(strings.TrimSpace(text), " ")
+
+	for _, part := range parts {
+		eq := strings.IndexByte(part, '=')
+		if eq != -1 {
+			val := part[eq+1:]
+
+			switch part[:eq] {
+			case "name":
+				m.Name = val
+			default:
+				log.Fatalf("Unknown key: %s", part[:eq])
+			}
+		}
+	}
 }
 
 type exportedType struct {
@@ -96,7 +115,7 @@ const codeTemplate2 = `package {{.Package}}
 	}
 
 	{{range .Methods}}
-		func {{.Name}}_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+		func {{.GoName}}_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
 			if len(args) != {{.NumArgs}} {
 				return env.ArgumentError(len(args), {{.NumArgs}})
 			}
@@ -107,7 +126,7 @@ const codeTemplate2 = `package {{.Package}}
 				a{{$i}} := args[{{$i}}].({{$e.GoType}})
 			{{end}}
 
-			ret, err := self.{{.Name}}(
+			ret, err := self.{{.GoName}}(
 				{{range $i, $e := .Args}}
 					a{{$i}},
 				{{end}}
@@ -133,7 +152,7 @@ func init() {
 		{{range .Methods}}
 			methods["{{.Name}}"] = value.MakeMethod(&value.MethodConfig{
 				Name: "{{.Name}}",
-				Func: {{.Name}}_adapter,
+				Func: {{.GoName}}_adapter,
 			})
 		{{end}}
 
@@ -192,12 +211,19 @@ func gen(f *ast.File) {
 
 			t := byName[recv]
 
-			t.Methods = append(t.Methods, &method{
+			meth := &method{
+				GoName:   name,
 				Name:     name,
 				NumArgs:  len(args),
 				RecvType: recv,
 				Args:     args,
-			})
+			}
+
+			if strings.HasPrefix(fd.Doc.Text(), "m13 ") {
+				meth.Parse(fd.Doc.Text()[4:])
+			}
+
+			t.Methods = append(t.Methods, meth)
 		}
 	}
 

@@ -53,13 +53,40 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		val, err := vm.invokeOp(builtin.I64(3), builtin.I64(4), "add")
+		val, err := vm.invokeOp(builtin.I64(3), builtin.I64(4), "+")
 		require.NoError(t, err)
 
 		i, ok := val.(builtin.I64)
 		require.True(t, ok)
 
 		assert.Equal(t, builtin.I64(7), i)
+	})
+
+	n.It("calls a method", func() {
+		var seq []insn.Instruction
+
+		seq = append(seq, insn.Store(0, insn.Int(3)))
+		seq = append(seq, insn.Store(1, insn.Int(4)))
+		seq = append(seq, insn.CallOp(0, 0, 0))
+
+		ctx := &ExecuteContext{
+			NumRegs:  2,
+			Literals: []string{"+"},
+			Sequence: seq,
+		}
+
+		vm, err := NewVM()
+		require.NoError(t, err)
+
+		vm.reg[1] = builtin.I64(47)
+
+		err = vm.ExecuteContext(ctx)
+		require.NoError(t, err)
+
+		val, ok := vm.reg[0].(builtin.I64)
+		require.True(t, ok)
+
+		assert.Equal(t, builtin.I64(7), val)
 	})
 
 	n.Meow()

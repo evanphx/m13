@@ -57,8 +57,8 @@ func init() {
 
 	methods = make(map[string]*value.Method)
 
-	methods["add"] = value.MakeMethod(&value.MethodConfig{
-		Name: "add",
+	methods["+"] = value.MakeMethod(&value.MethodConfig{
+		Name: "+",
 		Func: add_adapter,
 	})
 
