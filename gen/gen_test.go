@@ -140,5 +140,59 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, int64(4), i.Data())
 	})
 
+	n.It("generates bytecode for an inc of a variable", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		tree := &ast.Inc{
+			Receiver: &ast.Variable{Name: "a"},
+		}
+
+		g.locals["a"] = 7
+		g.sp = 8
+
+		err = g.Generate(tree)
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		i := seq[0]
+
+		assert.Equal(t, insn.Call0, i.Op())
+		assert.Equal(t, 7, i.R0())
+		assert.Equal(t, 7, i.R1())
+		assert.Equal(t, 0, i.R2())
+		assert.Equal(t, int64(0), i.Rest2())
+
+		assert.Equal(t, "++", g.literals[0])
+	})
+
+	n.It("generates bytecode for a dec of a variable", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		tree := &ast.Dec{
+			Receiver: &ast.Variable{Name: "a"},
+		}
+
+		g.locals["a"] = 7
+		g.sp = 8
+
+		err = g.Generate(tree)
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		i := seq[0]
+
+		assert.Equal(t, insn.Call0, i.Op())
+		assert.Equal(t, 7, i.R0())
+		assert.Equal(t, 7, i.R1())
+		assert.Equal(t, 0, i.R2())
+		assert.Equal(t, int64(0), i.Rest2())
+
+		assert.Equal(t, "--", g.literals[0])
+	})
+
 	n.Meow()
 }

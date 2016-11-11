@@ -97,6 +97,8 @@ func TestLexer(t *testing.T) {
 		{"has", Has},
 		{"is", Is},
 		{"if", If},
+		{"++", Inc},
+		{"--", Dec},
 	}
 
 	for _, st := range keywordTests {
@@ -144,7 +146,6 @@ func TestLexer(t *testing.T) {
 
 	var opTests = []string{
 		"+",
-		"++",
 		">",
 		"<",
 		"<+>",
@@ -222,6 +223,22 @@ func TestLexerEdge(t *testing.T) {
 
 		assert.Equal(t, Comment, v.Type)
 		assert.Equal(t, " blah", v.Value.(string))
+	})
+
+	n.It("has a++ as 2 lexems", func() {
+		lex, err := NewLexer("a++")
+		require.NoError(t, err)
+
+		v, err := lex.Next()
+		require.NoError(t, err)
+
+		assert.Equal(t, Word, v.Type)
+		assert.Equal(t, "a", v.Value.(string))
+
+		v, err = lex.Next()
+		require.NoError(t, err)
+
+		assert.Equal(t, Inc, v.Type)
 	})
 
 	n.Meow()

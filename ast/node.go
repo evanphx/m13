@@ -91,3 +91,11 @@ type If struct {
 	Cond Node
 	Body Node
 }
+
+type Inc struct {
+	Receiver Node
+}
+
+type Dec struct {
+	Receiver Node
+}

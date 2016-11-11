@@ -11,6 +11,7 @@ const (
 	Reset    Op = 4
 	Return   Op = 5
 	GIF      Op = 6
+	Call0    Op = 7
 )
 
 type Instruction int64
@@ -57,6 +58,8 @@ func (i Instruction) Rest1() int64 {
 func (i Instruction) Rest2() int64 {
 	return int64(i >> Rest2Shift)
 }
+
+type BuilderType struct{}
 
 type Int int
 
@@ -110,3 +113,16 @@ func GotoIfFalse(reg int, pos int) Instruction {
 
 	return out
 }
+
+func (_ BuilderType) Call0(dest, recv, lit int) Instruction {
+	var out Instruction
+
+	out |= Instruction(Call0)
+	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(recv) << Reg1Shift)
+	out |= (Instruction(lit) << Reg2Shift)
+
+	return out
+}
+
+var Builder BuilderType

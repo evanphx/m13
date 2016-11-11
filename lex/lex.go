@@ -52,6 +52,8 @@ const (
 	Has
 	Is
 	If
+	Inc
+	Dec
 )
 
 type Value struct {
@@ -136,7 +138,7 @@ func (l *Lexer) scanWord(r rune) (string, error) {
 			break
 		}
 
-		cont := unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '+' || r == '<' || r == '>' || r == '*'
+		cont := unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
 
 		if !cont {
 			l.r.UnreadRune()
@@ -147,6 +149,30 @@ func (l *Lexer) scanWord(r rune) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+func (l *Lexer) scanOp(r rune) (*Value, error) {
+	var buf bytes.Buffer
+
+	buf.WriteRune(r)
+
+	for {
+		r, _, err := l.r.ReadRune()
+		if err != nil {
+			break
+		}
+
+		cont := unicode.IsPunct(r) || unicode.IsSymbol(r)
+
+		if !cont {
+			l.r.UnreadRune()
+			break
+		}
+
+		buf.WriteRune(r)
+	}
+
+	return &Value{Type: Word, Value: buf.String()}, nil
 }
 
 func (l *Lexer) scanDigit(width int) (int64, error) {
@@ -414,6 +440,32 @@ func (l *Lexer) Next() (*Value, error) {
 		return &Value{Type: IVar, Value: word}, nil
 	case '#':
 		return l.scanComment()
+	case '+':
+		nr, _, err := l.r.ReadRune()
+		if err != nil {
+			return &Value{Type: Word, Value: "+"}, nil
+		}
+
+		if nr == '+' {
+			return &Value{Type: Inc}, nil
+		}
+
+		l.r.UnreadRune()
+		return l.scanOp(r)
+	case '-':
+		r, _, err := l.r.ReadRune()
+		if err != nil {
+			return &Value{Type: Word, Value: "-"}, nil
+		}
+
+		if r == '-' {
+			return &Value{Type: Dec}, nil
+		}
+
+		l.r.UnreadRune()
+		return l.scanOp(r)
+	case '<', '>', '*':
+		return l.scanOp(r)
 	default:
 		return l.scanBare(r)
 	}

@@ -374,7 +374,24 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	stmt.Rule = r.Or(comment, importR, class, def, has, ifr, attrAssign, assign, expr)
+	inc := r.Fs(
+		r.Seq(expr, r.T(lex.Inc)),
+		func(rv []RuleValue) RuleValue {
+			return &ast.Inc{
+				Receiver: rv[0].(ast.Node),
+			}
+		})
+
+	dec := r.Fs(
+		r.Seq(expr, r.T(lex.Dec)),
+		func(rv []RuleValue) RuleValue {
+			return &ast.Dec{
+				Receiver: rv[0].(ast.Node),
+			}
+		})
+
+	stmt.Rule = r.Or(comment, importR, class, def, has, ifr,
+		attrAssign, assign, inc, dec, expr)
 
 	p.root = r.Fs(
 		r.Seq(stmtList, r.Maybe(stmtSep), r.T(lex.Term)),

@@ -12,11 +12,30 @@ type Generator struct {
 
 	sp int
 
+	locals   map[string]int
 	literals []string
 }
 
 func NewGenerator() (*Generator, error) {
-	return &Generator{}, nil
+	g := &Generator{
+		locals: make(map[string]int),
+	}
+
+	return g, nil
+}
+
+func (g *Generator) findLiteral(l string) int {
+	for i, x := range g.literals {
+		if x == l {
+			return i
+		}
+	}
+
+	i := len(g.literals)
+
+	g.literals = append(g.literals, l)
+
+	return i
 }
 
 func (g *Generator) Reserve(slot int) {
@@ -82,6 +101,30 @@ func (g *Generator) Generate(gn ast.Node) error {
 		}
 
 		g.seq[patchPos] = insn.GotoIfFalse(patchSp, len(g.seq))
+	case *ast.Inc:
+		v, ok := n.Receiver.(*ast.Variable)
+		if !ok {
+			return fmt.Errorf("Unable to inc type: %T", n.Receiver)
+		}
+
+		reg := g.locals[v.Name]
+
+		lit := g.findLiteral("++")
+
+		g.seq = append(g.seq, insn.Builder.Call0(reg, reg, lit))
+
+	case *ast.Dec:
+		v, ok := n.Receiver.(*ast.Variable)
+		if !ok {
+			return fmt.Errorf("Unable to inc type: %T", n.Receiver)
+		}
+
+		reg := g.locals[v.Name]
+
+		lit := g.findLiteral("--")
+
+		g.seq = append(g.seq, insn.Builder.Call0(reg, reg, lit))
+
 	default:
 		return fmt.Errorf("Unhandled ast type: %T", gn)
 	}
