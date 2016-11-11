@@ -35,6 +35,22 @@ func add_adapter(env value.Env, recv value.Value, args []value.Value) (value.Val
 	return ret, nil
 }
 
+func inc_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+	if len(args) != 0 {
+		return env.ArgumentError(len(args), 0)
+	}
+
+	self := recv.(I64)
+
+	ret, err := self.inc()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 var type_BigInt *value.Type
 
 func (_ BigInt) Type() *value.Type {
@@ -60,6 +76,11 @@ func init() {
 	methods["+"] = value.MakeMethod(&value.MethodConfig{
 		Name: "+",
 		Func: add_adapter,
+	})
+
+	methods["++"] = value.MakeMethod(&value.MethodConfig{
+		Name: "++",
+		Func: inc_adapter,
 	})
 
 	type_I64 = value.MakeType(&value.TypeConfig{

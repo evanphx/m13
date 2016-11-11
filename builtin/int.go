@@ -22,6 +22,11 @@ func (i I64) add(j I64) (I64, error) {
 	return i + j, nil
 }
 
+// m13 name=++
+func (i I64) inc() (I64, error) {
+	return i + 1, nil
+}
+
 func MakeI64(i int64) value.Value {
 	return I64(i)
 }
