@@ -1,6 +1,8 @@
 package vm
 
 import (
+	"fmt"
+
 	"github.com/evanphx/m13/builtin"
 	"github.com/evanphx/m13/insn"
 	"github.com/evanphx/m13/value"
@@ -28,7 +30,7 @@ func (vm *VM) ExecuteSeq(seq []insn.Instruction) error {
 		case insn.CopyReg:
 			vm.reg[i.R0()] = vm.reg[i.R1()]
 		default:
-			panic("unknown op")
+			panic("unknown op - huh?")
 		}
 	}
 
@@ -39,6 +41,18 @@ type ExecuteContext struct {
 	NumRegs  int
 	Literals []string
 	Sequence []insn.Instruction
+}
+
+func isTrue(v value.Value) bool {
+	if v == nil {
+		return false
+	}
+
+	if b, ok := v.(builtin.Bool); ok {
+		return bool(b)
+	}
+
+	return true
 }
 
 func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
@@ -54,6 +68,8 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 
 		ip++
 
+		// fmt.Printf("=> %s\n", i.Op())
+
 		switch i.Op() {
 		case insn.Noop:
 			// nothing
@@ -63,6 +79,19 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 			vm.reg[i.R0()] = builtin.MakeI64(i.Data())
 		case insn.CopyReg:
 			vm.reg[i.R0()] = vm.reg[i.R1()]
+		case insn.Call0:
+			res, err := vm.invokeN(
+				vm.reg[i.R1()],
+				nil,
+				ctx.Literals[i.R2()],
+			)
+			if err != nil {
+				return err
+			}
+
+			// fmt.Printf("set %d: %+v (%T)\n", i.R0(), res, res)
+
+			vm.reg[i.R0()] = res
 		case insn.CallN:
 			res, err := vm.invokeN(
 				vm.reg[i.R1()],
@@ -75,11 +104,13 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 
 			vm.reg[i.R0()] = res
 		case insn.GIF:
-			if vm.reg[i.R0()] == nil {
+			if !isTrue(vm.reg[i.R0()]) {
 				ip = int(i.Data())
 			}
+		case insn.Goto:
+			ip = int(i.Data())
 		default:
-			panic("unknown op")
+			panic(fmt.Sprintf("unknown op: %s", i.Op()))
 		}
 	}
 

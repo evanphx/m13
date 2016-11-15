@@ -99,6 +99,7 @@ func TestLexer(t *testing.T) {
 		{"if", If},
 		{"++", Inc},
 		{"--", Dec},
+		{"while", While},
 	}
 
 	for _, st := range keywordTests {

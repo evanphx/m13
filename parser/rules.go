@@ -374,6 +374,15 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
+	while := r.Fs(
+		r.Seq(r.T(lex.While), expr, braceBody),
+		func(rv []RuleValue) RuleValue {
+			return &ast.While{
+				Cond: rv[1],
+				Body: rv[2],
+			}
+		})
+
 	inc := r.Fs(
 		r.Seq(expr, r.T(lex.Inc)),
 		func(rv []RuleValue) RuleValue {
@@ -390,7 +399,8 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	stmt.Rule = r.Or(comment, importR, class, def, has, ifr,
+	stmt.Rule = r.Or(comment, importR, class, def, has,
+		ifr, while,
 		attrAssign, assign, inc, dec, expr)
 
 	p.root = r.Fs(

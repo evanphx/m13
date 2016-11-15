@@ -99,3 +99,8 @@ type Inc struct {
 type Dec struct {
 	Receiver Node
 }
+
+type While struct {
+	Cond Node
+	Body Node
+}

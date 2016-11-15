@@ -12,6 +12,7 @@ const (
 	Return   Op = 5
 	GIF      Op = 6
 	Call0    Op = 7
+	Goto     Op = 8
 )
 
 type Instruction int64
@@ -123,6 +124,19 @@ func (_ BuilderType) Call0(dest, recv, lit int) Instruction {
 	out |= (Instruction(lit) << Reg2Shift)
 
 	return out
+}
+
+func (_ BuilderType) Goto(dest int) Instruction {
+	var out Instruction
+
+	out |= Instruction(Goto)
+	out |= (Instruction(dest) << DataShift)
+
+	return out
+}
+
+func (_ BuilderType) Noop() Instruction {
+	return Instruction(Noop)
 }
 
 var Builder BuilderType

@@ -54,6 +54,7 @@ const (
 	If
 	Inc
 	Dec
+	While
 )
 
 type Value struct {
@@ -216,6 +217,7 @@ var Keywords = map[string]Type{
 	"has":    Has,
 	"is":     Is,
 	"if":     If,
+	"while":  While,
 }
 
 func (l *Lexer) scanBare(r rune) (*Value, error) {

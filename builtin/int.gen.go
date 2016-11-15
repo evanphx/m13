@@ -2,6 +2,12 @@ package builtin
 
 import "github.com/evanphx/m13/value"
 
+var type_Bool *value.Type
+
+func (_ Bool) Type() *value.Type {
+	return type_Bool
+}
+
 var type_Integer *value.Type
 
 func (_ Integer) Type() *value.Type {
@@ -51,6 +57,27 @@ func inc_adapter(env value.Env, recv value.Value, args []value.Value) (value.Val
 	return ret, nil
 }
 
+func lt_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+	if len(args) != 1 {
+		return env.ArgumentError(len(args), 1)
+	}
+
+	self := recv.(I64)
+
+	a0 := args[0].(I64)
+
+	ret, err := self.lt(
+
+		a0,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 var type_BigInt *value.Type
 
 func (_ BigInt) Type() *value.Type {
@@ -61,6 +88,15 @@ func init() {
 	pkg := value.OpenPackage("builtin")
 
 	var methods map[string]*value.Method
+
+	methods = make(map[string]*value.Method)
+
+	type_Bool = value.MakeType(&value.TypeConfig{
+		Package: pkg,
+		Name:    "Bool",
+		Parent:  "",
+		Methods: methods,
+	})
 
 	methods = make(map[string]*value.Method)
 
@@ -81,6 +117,11 @@ func init() {
 	methods["++"] = value.MakeMethod(&value.MethodConfig{
 		Name: "++",
 		Func: inc_adapter,
+	})
+
+	methods["<"] = value.MakeMethod(&value.MethodConfig{
+		Name: "<",
+		Func: lt_adapter,
 	})
 
 	type_I64 = value.MakeType(&value.TypeConfig{

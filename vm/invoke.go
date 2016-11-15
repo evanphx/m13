@@ -7,8 +7,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var ErrUnknownOp = errors.New("unknown op")
-
 type ErrArityMismatch struct {
 	Got  int
 	Need int
@@ -16,6 +14,15 @@ type ErrArityMismatch struct {
 
 func (e *ErrArityMismatch) Error() string {
 	return fmt.Sprintf("arity mismatch: expected %d, got %d", e.Need, e.Got)
+}
+
+type ErrUnknownOp struct {
+	Op   string
+	Type *value.Type
+}
+
+func (e *ErrUnknownOp) Error() string {
+	return fmt.Sprintf("unknown operation '%s' on '%s", e.Op, e.Type.FullName())
 }
 
 func (vm *VM) ArgumentError(got, need int) (value.Value, error) {
@@ -27,7 +34,7 @@ func (vm *VM) invokeOp(l, r value.Value, op string) (value.Value, error) {
 		return t.F(vm, l, []value.Value{r})
 	}
 
-	return nil, errors.Wrapf(ErrUnknownOp, "types (%T, %T)", l, r)
+	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Type: l.Type()})
 }
 
 func (vm *VM) invokeN(recv value.Value, args []value.Value, op string) (value.Value, error) {
@@ -35,5 +42,5 @@ func (vm *VM) invokeN(recv value.Value, args []value.Value, op string) (value.Va
 		return t.F(vm, recv, args)
 	}
 
-	return nil, errors.Wrapf(ErrUnknownOp, "types (%T)", recv)
+	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Type: recv.Type()})
 }

@@ -1,5 +1,7 @@
 package value
 
+import "fmt"
+
 type PackageRegistry struct {
 	Packages map[string]*Package
 }
@@ -9,6 +11,7 @@ var Registry = &PackageRegistry{
 }
 
 type Package struct {
+	Name  string
 	Types map[string]*Type
 }
 
@@ -18,6 +21,7 @@ func OpenPackage(name string) *Package {
 	}
 
 	pkg := &Package{
+		Name:  name,
 		Types: make(map[string]*Type),
 	}
 
@@ -38,6 +42,10 @@ type Type struct {
 	Name    string
 	Parent  *Type
 	Methods map[string]*Method
+}
+
+func (t *Type) FullName() string {
+	return fmt.Sprintf("%s.%s", t.Package.Name, t.Name)
 }
 
 func MakeType(cfg *TypeConfig) *Type {

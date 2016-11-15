@@ -116,5 +116,36 @@ func TestVM(t *testing.T) {
 
 	})
 
+	n.It("jumps backwards to handle a while", func() {
+		var seq []insn.Instruction
+
+		seq = append(seq,
+			insn.Store(0, insn.Int(0)),
+			insn.Store(1, insn.Int(3)),
+			insn.CallOp(2, 0, 0),
+			insn.GotoIfFalse(2, 6),
+			insn.Builder.Call0(0, 0, 1),
+			insn.Builder.Goto(2),
+			insn.Builder.Noop(),
+		)
+
+		ctx := &ExecuteContext{
+			NumRegs:  3,
+			Sequence: seq,
+			Literals: []string{"<", "++"},
+		}
+
+		vm, err := NewVM()
+		require.NoError(t, err)
+
+		err = vm.ExecuteContext(ctx)
+		require.NoError(t, err)
+
+		val, ok := vm.reg[0].(builtin.I64)
+		require.True(t, ok)
+
+		assert.Equal(t, builtin.I64(3), val)
+	})
+
 	n.Meow()
 }

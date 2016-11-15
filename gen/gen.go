@@ -101,6 +101,29 @@ func (g *Generator) Generate(gn ast.Node) error {
 		}
 
 		g.seq[patchPos] = insn.GotoIfFalse(patchSp, len(g.seq))
+	case *ast.While:
+		condPos := len(g.seq)
+
+		err := g.Generate(n.Cond)
+		if err != nil {
+			return err
+		}
+
+		patchSp := g.sp
+
+		patchPos := len(g.seq)
+
+		g.seq = append(g.seq, insn.GotoIfFalse(patchSp, 0))
+
+		err = g.Generate(n.Body)
+		if err != nil {
+			return err
+		}
+
+		g.seq = append(g.seq, insn.Builder.Goto(condPos))
+
+		g.seq[patchPos] = insn.GotoIfFalse(patchSp, len(g.seq))
+
 	case *ast.Inc:
 		v, ok := n.Receiver.(*ast.Variable)
 		if !ok {
