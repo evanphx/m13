@@ -1,5 +1,5 @@
 package value
 
 type Value interface {
-	Type() *Type
+	Type(env Env) *Type
 }

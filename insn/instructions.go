@@ -4,15 +4,16 @@ package insn
 type Op int8
 
 const (
-	Noop     Op = 0
-	StoreInt Op = 1
-	CopyReg  Op = 2
-	CallN    Op = 3
-	Reset    Op = 4
-	Return   Op = 5
-	GIF      Op = 6
-	Call0    Op = 7
-	Goto     Op = 8
+	Noop         Op = 0
+	StoreInt     Op = 1
+	CopyReg      Op = 2
+	CallN        Op = 3
+	Reset        Op = 4
+	Return       Op = 5
+	GIF          Op = 6
+	Call0        Op = 7
+	Goto         Op = 8
+	CreateLambda Op = 9
 )
 
 type Instruction int64
@@ -137,6 +138,17 @@ func (_ BuilderType) Goto(dest int) Instruction {
 
 func (_ BuilderType) Noop() Instruction {
 	return Instruction(Noop)
+}
+
+func (_ BuilderType) CreateLambda(dest, args, sub int) Instruction {
+	var out Instruction
+
+	out |= Instruction(CreateLambda)
+	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(args) << Reg1Shift)
+	out |= (Instruction(sub) << Rest1Shift)
+
+	return out
 }
 
 var Builder BuilderType

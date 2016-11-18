@@ -29,18 +29,27 @@ func (vm *VM) ArgumentError(got, need int) (value.Value, error) {
 	return nil, &ErrArityMismatch{Got: got, Need: need}
 }
 
+func (vm *VM) MustFindType(globalName string) *value.Type {
+	t, ok := vm.registry.FindType(globalName)
+	if !ok {
+		panic(fmt.Sprintf("unknown type: %s", globalName))
+	}
+
+	return t
+}
+
 func (vm *VM) invokeOp(l, r value.Value, op string) (value.Value, error) {
-	if t, ok := l.Type().Methods[op]; ok {
+	if t, ok := l.Type(vm).Methods[op]; ok {
 		return t.F(vm, l, []value.Value{r})
 	}
 
-	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Type: l.Type()})
+	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Type: l.Type(vm)})
 }
 
 func (vm *VM) invokeN(recv value.Value, args []value.Value, op string) (value.Value, error) {
-	if t, ok := recv.Type().Methods[op]; ok {
+	if t, ok := recv.Type(vm).Methods[op]; ok {
 		return t.F(vm, recv, args)
 	}
 
-	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Type: recv.Type()})
+	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Type: recv.Type(vm)})
 }

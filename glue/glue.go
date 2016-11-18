@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"flag"
+	"fmt"
 	"go/ast"
 	"go/importer"
 	"go/parser"
+	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,10 +16,15 @@ import (
 	"text/template"
 
 	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/imports"
+)
+
+var (
+	fType = flag.String("T", "", "type to generate")
 )
 
 func main() {
-	path := os.Args[2]
+	dir := os.Args[1]
 	var conf loader.Config
 
 	conf.TypeCheckFuncBodies = func(_ string) bool { return false }
@@ -22,24 +32,57 @@ func main() {
 	conf.TypeChecker.Importer = importer.Default()
 	conf.ParserMode = parser.ParseComments
 
-	f, err := conf.ParseFile(path, nil)
+	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	abs, err := filepath.Abs(path)
+	var (
+		astfiles []*ast.File
+	)
+
+	for _, fi := range files {
+		if filepath.Ext(fi.Name()) != ".go" {
+			continue
+		}
+
+		path := filepath.Join(dir, fi.Name())
+		f, err := conf.ParseFile(path, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		astfiles = append(astfiles, f)
+	}
+
+	abs, err := filepath.Abs(dir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	conf.CreateFromFiles(abs, f)
+	conf.CreateFromFiles(abs, astfiles...)
 
 	_, err = conf.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	gen(f)
+	var buf bytes.Buffer
+
+	gen(astfiles, &buf)
+
+	opt := &imports.Options{Comments: true}
+	theBytes := buf.Bytes()
+
+	res, err := imports.Process("m13.gen.go", theBytes, opt)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(filepath.Join(dir, "m13.gen.go"), res, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 type arg struct {
@@ -73,9 +116,10 @@ func (m *method) Parse(text string) {
 }
 
 type exportedType struct {
-	GoName string
-	Name   string
-	Parent string
+	GlobalName string
+	GoName     string
+	Name       string
+	Parent     string
 
 	Methods []*method
 }
@@ -105,13 +149,13 @@ type glue struct {
 	Types   []*exportedType
 }
 
-const codeTemplate2 = `package {{.Package}}
+const codeTemplate2 = `
+
+{{ $pkg := .Package }}
 
 {{range $type := .Types}}
-	var type_{{.Name}} *value.Type
-
-	func (_ {{.GoName}}) Type() *value.Type {
-		return type_{{.Name}}
+	func (_ {{.GoName}}) Type(env value.Env) *value.Type {
+		return env.MustFindType("{{.GlobalName}}")
 	}
 
 	{{range .Methods}}
@@ -139,34 +183,41 @@ const codeTemplate2 = `package {{.Package}}
 			return ret, nil
 		}
 	{{end}}
-{{end}}
 
-func init() {
-	pkg := value.OpenPackage("{{.Package}}")
+	func setup_{{.Name}}(setup value.Setup) {
+		pkg := setup.OpenPackage("{{$pkg}}")
 
-	var methods map[string]*value.Method
-
-	{{range .Types}}
-		methods = make(map[string]*value.Method)
+		methods := make(map[string]*value.Method)
 
 		{{range .Methods}}
-			methods["{{.Name}}"] = value.MakeMethod(&value.MethodConfig{
+			methods["{{.Name}}"] = setup.MakeMethod(&value.MethodConfig{
 				Name: "{{.Name}}",
 				Func: {{.GoName}}_adapter,
 			})
 		{{end}}
 
-		type_{{.Name}} = value.MakeType(&value.TypeConfig{
+		setup.MakeType(&value.TypeConfig{
 			Package: pkg,
 			Name: "{{.Name}}",
 			Parent: "{{.Parent}}",
 			Methods: methods,
+			GlobalName: "{{.GlobalName}}",
 		})
-	{{end}}
-}
+	}
+
+	var _ = value.RegisterSetup(setup_{{.Name}})
+{{end}}
 `
 
-func gen(f *ast.File) {
+func gen(files []*ast.File, out io.Writer) {
+	out.Write([]byte("package builtin\n"))
+
+	for _, f := range files {
+		genFile(f, out)
+	}
+}
+
+func genFile(f *ast.File, out io.Writer) {
 	var export []*exportedType
 
 	byName := map[string]*exportedType{}
@@ -181,7 +232,11 @@ func gen(f *ast.File) {
 				if ts, ok := spec.(*ast.TypeSpec); ok {
 					name := ts.Name.String()
 
-					et := &exportedType{GoName: name, Name: name}
+					et := &exportedType{
+						GlobalName: fmt.Sprintf("builtin.%s", name),
+						GoName:     name,
+						Name:       name,
+					}
 
 					if strings.HasPrefix(gd.Doc.Text(), "m13 ") {
 						et.Parse(gd.Doc.Text()[4:])
@@ -200,16 +255,25 @@ func gen(f *ast.File) {
 				continue
 			}
 
+			if !strings.HasPrefix(fd.Doc.Text(), "m13") {
+				continue
+			}
+
 			recv := fd.Recv.List[0].Type.(*ast.Ident).Name
 			name := fd.Name.Name
 
 			var args []*arg
 
 			for _, field := range fd.Type.Params.List {
-				args = append(args, &arg{GoType: field.Type.(*ast.Ident).Name})
+				if id, ok := field.Type.(*ast.Ident); ok {
+					args = append(args, &arg{GoType: id.Name})
+				}
 			}
 
-			t := byName[recv]
+			t, ok := byName[recv]
+			if !ok {
+				panic(fmt.Sprintf("where is %s", recv))
+			}
 
 			meth := &method{
 				GoName:   name,
@@ -236,7 +300,7 @@ func gen(f *ast.File) {
 		log.Fatal(err)
 	}
 
-	err = t.Execute(os.Stdout, &g)
+	err = t.Execute(out, &g)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -238,5 +238,34 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, int64(0), i.Data())
 	})
 
+	n.It("generates bytecode for a lambda", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		tree := &ast.Lambda{
+			Expr: &ast.Integer{Value: 3},
+		}
+
+		err = g.Generate(tree)
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		i := seq[0]
+
+		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+		assert.Equal(t, int64(0), i.Rest1())
+
+		sub := g.subSequences[0]
+
+		i = sub[0]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, int64(3), i.Data())
+	})
+
 	n.Meow()
 }

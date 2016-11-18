@@ -9,12 +9,15 @@ import (
 )
 
 type VM struct {
-	reg []value.Value
+	registry *value.Registry
+	reg      []value.Value
 }
 
 func NewVM() (*VM, error) {
+
 	return &VM{
-		reg: make([]value.Value, 128),
+		registry: value.NewRegistry(),
+		reg:      make([]value.Value, 128),
 	}, nil
 }
 

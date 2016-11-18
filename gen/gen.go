@@ -14,6 +14,8 @@ type Generator struct {
 
 	locals   map[string]int
 	literals []string
+
+	subSequences [][]insn.Instruction
 }
 
 func NewGenerator() (*Generator, error) {
@@ -147,6 +149,23 @@ func (g *Generator) Generate(gn ast.Node) error {
 		lit := g.findLiteral("--")
 
 		g.seq = append(g.seq, insn.Builder.Call0(reg, reg, lit))
+
+	case *ast.Lambda:
+		sub, err := NewGenerator()
+		if err != nil {
+			return err
+		}
+
+		err = sub.Generate(n.Expr)
+		if err != nil {
+			return err
+		}
+
+		pos := len(g.subSequences)
+
+		g.subSequences = append(g.subSequences, sub.Sequence())
+
+		g.seq = append(g.seq, insn.Builder.CreateLambda(g.sp, 0, pos))
 
 	default:
 		return fmt.Errorf("Unhandled ast type: %T", gn)

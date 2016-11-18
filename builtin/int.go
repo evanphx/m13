@@ -1,3 +1,5 @@
+//go generate m13-glue
+
 package builtin
 
 import (
@@ -5,9 +7,6 @@ import (
 
 	"github.com/evanphx/m13/value"
 )
-
-// m13
-type Bool bool
 
 // m13
 type Integer struct{}
