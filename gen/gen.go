@@ -51,14 +51,14 @@ func (g *Generator) Sequence() []insn.Instruction {
 func (g *Generator) Generate(gn ast.Node) error {
 	switch n := gn.(type) {
 	case *ast.Integer:
-		g.seq = append(g.seq, insn.Store(g.sp, insn.Int(n.Value)))
+		g.seq = append(g.seq, insn.Builder.Store(g.sp, insn.Int(n.Value)))
 	case *ast.Assign:
 		err := g.Generate(n.Value)
 		if err != nil {
 			return err
 		}
 
-		g.seq = append(g.seq, insn.StoreReg(0, g.sp))
+		g.seq = append(g.seq, insn.Builder.StoreReg(0, g.sp))
 	case *ast.Op:
 		err := g.Generate(n.Left)
 		if err != nil {
@@ -77,7 +77,7 @@ func (g *Generator) Generate(gn ast.Node) error {
 		idx := len(g.literals)
 		g.literals = append(g.literals, n.Name)
 
-		g.seq = append(g.seq, insn.CallOp(g.sp, g.sp, idx))
+		g.seq = append(g.seq, insn.Builder.CallOp(g.sp, g.sp, idx))
 	case *ast.Block:
 		for _, ex := range n.Expressions {
 			err := g.Generate(ex)
@@ -95,14 +95,14 @@ func (g *Generator) Generate(gn ast.Node) error {
 
 		patchPos := len(g.seq)
 
-		g.seq = append(g.seq, insn.GotoIfFalse(patchSp, 0))
+		g.seq = append(g.seq, insn.Builder.GotoIfFalse(patchSp, 0))
 
 		err = g.Generate(n.Body)
 		if err != nil {
 			return err
 		}
 
-		g.seq[patchPos] = insn.GotoIfFalse(patchSp, len(g.seq))
+		g.seq[patchPos] = insn.Builder.GotoIfFalse(patchSp, len(g.seq))
 	case *ast.While:
 		condPos := len(g.seq)
 
@@ -115,7 +115,7 @@ func (g *Generator) Generate(gn ast.Node) error {
 
 		patchPos := len(g.seq)
 
-		g.seq = append(g.seq, insn.GotoIfFalse(patchSp, 0))
+		g.seq = append(g.seq, insn.Builder.GotoIfFalse(patchSp, 0))
 
 		err = g.Generate(n.Body)
 		if err != nil {
@@ -124,7 +124,7 @@ func (g *Generator) Generate(gn ast.Node) error {
 
 		g.seq = append(g.seq, insn.Builder.Goto(condPos))
 
-		g.seq[patchPos] = insn.GotoIfFalse(patchSp, len(g.seq))
+		g.seq[patchPos] = insn.Builder.GotoIfFalse(patchSp, len(g.seq))
 
 	case *ast.Inc:
 		v, ok := n.Receiver.(*ast.Variable)

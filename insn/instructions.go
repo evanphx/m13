@@ -66,7 +66,7 @@ type BuilderType struct{}
 
 type Int int
 
-func Store(reg int, i Int) Instruction {
+func (_ BuilderType) Store(reg int, i Int) Instruction {
 	var out Instruction
 
 	out |= Instruction(StoreInt)
@@ -76,7 +76,7 @@ func Store(reg int, i Int) Instruction {
 	return out
 }
 
-func StoreReg(dest, src int) Instruction {
+func (_ BuilderType) StoreReg(dest, src int) Instruction {
 	var out Instruction
 
 	out |= Instruction(CopyReg)
@@ -86,7 +86,7 @@ func StoreReg(dest, src int) Instruction {
 	return out
 }
 
-func StoreNil(dest int) Instruction {
+func (_ BuilderType) StoreNil(dest int) Instruction {
 	var out Instruction
 
 	out |= Instruction(Reset)
@@ -95,7 +95,7 @@ func StoreNil(dest int) Instruction {
 	return out
 }
 
-func CallOp(dest, base, lit int) Instruction {
+func (_ BuilderType) CallOp(dest, base, lit int) Instruction {
 	var out Instruction
 
 	out |= Instruction(CallN)
@@ -107,7 +107,7 @@ func CallOp(dest, base, lit int) Instruction {
 	return out
 }
 
-func GotoIfFalse(reg int, pos int) Instruction {
+func (_ BuilderType) GotoIfFalse(reg int, pos int) Instruction {
 	var out Instruction
 
 	out |= Instruction(GIF)

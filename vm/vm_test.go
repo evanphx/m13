@@ -17,7 +17,7 @@ func TestVM(t *testing.T) {
 	n.It("can store an integer into a register", func() {
 		var seq []insn.Instruction
 
-		seq = append(seq, insn.Store(0, insn.Int(1)))
+		seq = append(seq, insn.Builder.Store(0, insn.Int(1)))
 
 		vm, err := NewVM()
 		require.NoError(t, err)
@@ -41,7 +41,7 @@ func TestVM(t *testing.T) {
 	n.It("can copy a value from one register to another", func() {
 		var seq []insn.Instruction
 
-		seq = append(seq, insn.StoreReg(0, 1))
+		seq = append(seq, insn.Builder.StoreReg(0, 1))
 
 		vm, err := NewVM()
 		require.NoError(t, err)
@@ -80,9 +80,9 @@ func TestVM(t *testing.T) {
 	n.It("calls a method", func() {
 		var seq []insn.Instruction
 
-		seq = append(seq, insn.Store(0, insn.Int(3)))
-		seq = append(seq, insn.Store(1, insn.Int(4)))
-		seq = append(seq, insn.CallOp(0, 0, 0))
+		seq = append(seq, insn.Builder.Store(0, insn.Int(3)))
+		seq = append(seq, insn.Builder.Store(1, insn.Int(4)))
+		seq = append(seq, insn.Builder.CallOp(0, 0, 0))
 
 		ctx := ExecuteContext{
 			Code: &value.Code{
@@ -109,11 +109,11 @@ func TestVM(t *testing.T) {
 	n.It("jumps over a condition body", func() {
 		var seq []insn.Instruction
 
-		seq = append(seq, insn.Store(0, insn.Int(3)))
-		seq = append(seq, insn.StoreNil(1))
-		seq = append(seq, insn.GotoIfFalse(1, 4))
-		seq = append(seq, insn.Store(0, insn.Int(4)))
-		seq = append(seq, insn.Instruction(insn.Noop))
+		seq = append(seq, insn.Builder.Store(0, insn.Int(3)))
+		seq = append(seq, insn.Builder.StoreNil(1))
+		seq = append(seq, insn.Builder.GotoIfFalse(1, 4))
+		seq = append(seq, insn.Builder.Store(0, insn.Int(4)))
+		seq = append(seq, insn.Builder.Noop())
 
 		ctx := ExecuteContext{
 			Code: &value.Code{
@@ -139,10 +139,10 @@ func TestVM(t *testing.T) {
 		var seq []insn.Instruction
 
 		seq = append(seq,
-			insn.Store(0, insn.Int(0)),
-			insn.Store(1, insn.Int(3)),
-			insn.CallOp(2, 0, 0),
-			insn.GotoIfFalse(2, 6),
+			insn.Builder.Store(0, insn.Int(0)),
+			insn.Builder.Store(1, insn.Int(3)),
+			insn.Builder.CallOp(2, 0, 0),
+			insn.Builder.GotoIfFalse(2, 6),
 			insn.Builder.Call0(0, 0, 1),
 			insn.Builder.Goto(2),
 			insn.Builder.Noop(),
@@ -179,7 +179,7 @@ func TestVM(t *testing.T) {
 		c1 := &value.Code{
 			NumRegs: 1,
 			Instructions: []insn.Instruction{
-				insn.Store(0, insn.Int(3)),
+				insn.Builder.Store(0, insn.Int(3)),
 			},
 		}
 
