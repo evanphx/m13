@@ -1,12 +1,17 @@
 package value
 
+type Ref struct {
+	Value Value
+}
+
 type Lambda struct {
 	Code *Code
 	Args int
+	Refs []*Ref
 }
 
-func CreateLambda(code *Code, args int) *Lambda {
-	return &Lambda{code, args}
+func CreateLambda(code *Code, refs []*Ref, args int) *Lambda {
+	return &Lambda{code, args, refs}
 }
 
 func (l *Lambda) Type(env Env) *Type {

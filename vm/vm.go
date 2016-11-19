@@ -27,6 +27,7 @@ func (vm *VM) Reg(i int) value.Value {
 type ExecuteContext struct {
 	Sp   int
 	Code *value.Code
+	Refs []*value.Ref
 }
 
 func isTrue(v value.Value) bool {
@@ -98,7 +99,8 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
 		case insn.Goto:
 			ip = int(i.Data())
 		case insn.CreateLambda:
-			reg[i.R0()] = vm.createLambda(ctx, i.R1(), i.Rest1())
+			reg[i.R0()] = vm.createLambda(ctx, i.R1(), vm.refs(ctx, ip, i.R2()), i.Rest2())
+			ip += i.R2()
 		case insn.Invoke:
 			res, err := vm.invoke(ctx, reg[i.R1()], i.Rest1())
 			if err != nil {
@@ -108,6 +110,10 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
 			reg[i.R0()] = res
 		case insn.Return:
 			return reg[i.R0()], nil
+		case insn.ReadRef:
+			reg[i.R0()] = ctx.Refs[i.Data()].Value
+		case insn.StoreRef:
+			ctx.Refs[i.Data()].Value = reg[i.R0()]
 		default:
 			panic(fmt.Sprintf("unknown op: %s", i.Op()))
 		}
@@ -116,6 +122,25 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
 	return nil, nil
 }
 
-func (vm *VM) createLambda(ctx ExecuteContext, args int, code int64) *value.Lambda {
-	return value.CreateLambda(ctx.Code.SubCode[code], args)
+func (vm *VM) refs(ctx ExecuteContext, ip int, sz int) []*value.Ref {
+	if sz == 0 {
+		return nil
+	}
+
+	refs := make([]*value.Ref, 0, sz)
+
+	for i := 0; i < sz; i++ {
+		c := ctx.Code.Instructions[ip+i]
+		if c.Op() != insn.ReadRef {
+			panic("expected readref")
+		}
+
+		refs = append(refs, ctx.Refs[c.R1()])
+	}
+
+	return refs
+}
+
+func (vm *VM) createLambda(ctx ExecuteContext, args int, refs []*value.Ref, code int64) *value.Lambda {
+	return value.CreateLambda(ctx.Code.SubCode[code], refs, args)
 }

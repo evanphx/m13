@@ -176,7 +176,7 @@ func (g *Generator) Generate(gn ast.Node) error {
 
 		g.subSequences = append(g.subSequences, sub.Sequence())
 
-		g.seq = append(g.seq, insn.Builder.CreateLambda(g.sp, 0, pos))
+		g.seq = append(g.seq, insn.Builder.CreateLambda(g.sp, 0, 0, pos))
 
 	default:
 		return fmt.Errorf("Unhandled ast type: %T", gn)

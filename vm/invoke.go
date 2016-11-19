@@ -52,6 +52,7 @@ func (vm *VM) invoke(ctx ExecuteContext, val value.Value, args int64) (value.Val
 	sub := ExecuteContext{
 		Sp:   ctx.Sp + ctx.Code.NumRegs,
 		Code: l.Code,
+		Refs: l.Refs,
 	}
 
 	return vm.ExecuteContext(sub)

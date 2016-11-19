@@ -15,6 +15,8 @@ const (
 	Goto         Op = 8
 	CreateLambda Op = 9
 	Invoke       Op = 10
+	ReadRef      Op = 11
+	StoreRef     Op = 12
 )
 
 type Instruction int64
@@ -141,13 +143,14 @@ func (_ BuilderType) Noop() Instruction {
 	return Instruction(Noop)
 }
 
-func (_ BuilderType) CreateLambda(dest, args, sub int) Instruction {
+func (_ BuilderType) CreateLambda(dest, args, refs, sub int) Instruction {
 	var out Instruction
 
 	out |= Instruction(CreateLambda)
 	out |= (Instruction(dest) << Reg0Shift)
 	out |= (Instruction(args) << Reg1Shift)
-	out |= (Instruction(sub) << Rest1Shift)
+	out |= (Instruction(refs) << Reg2Shift)
+	out |= (Instruction(sub) << Rest2Shift)
 
 	return out
 }
@@ -168,6 +171,26 @@ func (_ BuilderType) Return(reg int) Instruction {
 
 	out |= Instruction(Return)
 	out |= (Instruction(reg) << Reg0Shift)
+
+	return out
+}
+
+func (_ BuilderType) ReadRef(reg, ref int) Instruction {
+	var out Instruction
+
+	out |= Instruction(ReadRef)
+	out |= (Instruction(reg) << Reg0Shift)
+	out |= (Instruction(ref) << Reg1Shift)
+
+	return out
+}
+
+func (_ BuilderType) StoreRef(reg, ref int) Instruction {
+	var out Instruction
+
+	out |= Instruction(StoreRef)
+	out |= (Instruction(reg) << Reg0Shift)
+	out |= (Instruction(ref) << Reg1Shift)
 
 	return out
 }

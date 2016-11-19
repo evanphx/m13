@@ -14,10 +14,12 @@ import (
 func TestVM(t *testing.T) {
 	n := neko.Start(t)
 
+	b := insn.Builder
+
 	n.It("can store an integer into a register", func() {
 		var seq []insn.Instruction
 
-		seq = append(seq, insn.Builder.Store(0, insn.Int(1)))
+		seq = append(seq, b.Store(0, insn.Int(1)))
 
 		vm, err := NewVM()
 		require.NoError(t, err)
@@ -41,7 +43,7 @@ func TestVM(t *testing.T) {
 	n.It("can copy a value from one register to another", func() {
 		var seq []insn.Instruction
 
-		seq = append(seq, insn.Builder.StoreReg(0, 1))
+		seq = append(seq, b.StoreReg(0, 1))
 
 		vm, err := NewVM()
 		require.NoError(t, err)
@@ -80,9 +82,9 @@ func TestVM(t *testing.T) {
 	n.It("calls a method", func() {
 		var seq []insn.Instruction
 
-		seq = append(seq, insn.Builder.Store(0, insn.Int(3)))
-		seq = append(seq, insn.Builder.Store(1, insn.Int(4)))
-		seq = append(seq, insn.Builder.CallOp(0, 0, 0))
+		seq = append(seq, b.Store(0, insn.Int(3)))
+		seq = append(seq, b.Store(1, insn.Int(4)))
+		seq = append(seq, b.CallOp(0, 0, 0))
 
 		ctx := ExecuteContext{
 			Code: &value.Code{
@@ -109,11 +111,11 @@ func TestVM(t *testing.T) {
 	n.It("jumps over a condition body", func() {
 		var seq []insn.Instruction
 
-		seq = append(seq, insn.Builder.Store(0, insn.Int(3)))
-		seq = append(seq, insn.Builder.StoreNil(1))
-		seq = append(seq, insn.Builder.GotoIfFalse(1, 4))
-		seq = append(seq, insn.Builder.Store(0, insn.Int(4)))
-		seq = append(seq, insn.Builder.Noop())
+		seq = append(seq, b.Store(0, insn.Int(3)))
+		seq = append(seq, b.StoreNil(1))
+		seq = append(seq, b.GotoIfFalse(1, 4))
+		seq = append(seq, b.Store(0, insn.Int(4)))
+		seq = append(seq, b.Noop())
 
 		ctx := ExecuteContext{
 			Code: &value.Code{
@@ -139,13 +141,13 @@ func TestVM(t *testing.T) {
 		var seq []insn.Instruction
 
 		seq = append(seq,
-			insn.Builder.Store(0, insn.Int(0)),
-			insn.Builder.Store(1, insn.Int(3)),
-			insn.Builder.CallOp(2, 0, 0),
-			insn.Builder.GotoIfFalse(2, 6),
-			insn.Builder.Call0(0, 0, 1),
-			insn.Builder.Goto(2),
-			insn.Builder.Noop(),
+			b.Store(0, insn.Int(0)),
+			b.Store(1, insn.Int(3)),
+			b.CallOp(2, 0, 0),
+			b.GotoIfFalse(2, 6),
+			b.Call0(0, 0, 1),
+			b.Goto(2),
+			b.Noop(),
 		)
 
 		ctx := ExecuteContext{
@@ -172,16 +174,16 @@ func TestVM(t *testing.T) {
 		var seq []insn.Instruction
 
 		seq = append(seq,
-			insn.Builder.CreateLambda(0, 0, 0),
-			insn.Builder.Invoke(0, 0, 0),
-			insn.Builder.Return(0),
+			b.CreateLambda(0, 0, 0, 0),
+			b.Invoke(0, 0, 0),
+			b.Return(0),
 		)
 
 		c1 := &value.Code{
 			NumRegs: 1,
 			Instructions: []insn.Instruction{
-				insn.Builder.Store(0, insn.Int(3)),
-				insn.Builder.Return(0),
+				b.Store(0, insn.Int(3)),
+				b.Return(0),
 			},
 		}
 
@@ -206,16 +208,16 @@ func TestVM(t *testing.T) {
 		var seq []insn.Instruction
 
 		seq = append(seq,
-			insn.Builder.CreateLambda(0, 0, 0),
-			insn.Builder.Store(1, insn.Int(3)),
-			insn.Builder.Invoke(0, 0, 1),
+			b.CreateLambda(0, 0, 0, 0),
+			b.Store(1, insn.Int(3)),
+			b.Invoke(0, 0, 1),
 		)
 
 		c1 := &value.Code{
 			NumRegs: 1,
 			Instructions: []insn.Instruction{
-				insn.Builder.Call0(0, 0, 0),
-				insn.Builder.Return(0),
+				b.Call0(0, 0, 0),
+				b.Return(0),
 			},
 			Literals: []string{"++"},
 		}
@@ -239,5 +241,52 @@ func TestVM(t *testing.T) {
 
 		assert.Equal(t, builtin.I64(4), val)
 	})
+
+	n.It("can pass and access a ref", func() {
+		var seq []insn.Instruction
+
+		seq = append(seq,
+			b.Store(0, insn.Int(3)),
+			b.StoreRef(0, 0),
+			b.CreateLambda(0, 0, 1, 0),
+			b.ReadRef(0, 0),
+			b.Invoke(0, 0, 0),
+			b.Return(0),
+		)
+
+		c1 := &value.Code{
+			NumRefs: 1,
+			NumRegs: 1,
+			Instructions: []insn.Instruction{
+				b.ReadRef(0, 0),
+				b.Return(0),
+			},
+			Literals: []string{"++"},
+		}
+
+		ctx := ExecuteContext{
+			Code: &value.Code{
+				NumRefs:      1,
+				NumRegs:      1,
+				Instructions: seq,
+				SubCode:      []*value.Code{c1},
+			},
+			Refs: make([]*value.Ref, 1),
+		}
+
+		ctx.Refs[0] = &value.Ref{}
+
+		vm, err := NewVM()
+		require.NoError(t, err)
+
+		out, err := vm.ExecuteContext(ctx)
+		require.NoError(t, err)
+
+		val, ok := out.(builtin.I64)
+		require.True(t, ok)
+
+		assert.Equal(t, builtin.I64(3), val)
+	})
+
 	n.Meow()
 }
