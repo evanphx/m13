@@ -14,7 +14,6 @@ type VM struct {
 }
 
 func NewVM() (*VM, error) {
-
 	return &VM{
 		registry: value.NewRegistry(),
 		reg:      make([]value.Value, 128),
@@ -25,27 +24,9 @@ func (vm *VM) Reg(i int) value.Value {
 	return vm.reg[i]
 }
 
-func (vm *VM) ExecuteSeq(seq []insn.Instruction) error {
-	for _, i := range seq {
-		switch i.Op() {
-		case insn.StoreInt:
-			vm.reg[i.R0()] = builtin.MakeI64(i.Data())
-		case insn.CopyReg:
-			vm.reg[i.R0()] = vm.reg[i.R1()]
-		default:
-			panic("unknown op - huh?")
-		}
-	}
-
-	return nil
-}
-
 type ExecuteContext struct {
-	Sp       int
-	NumRegs  int
-	Literals []string
-	Sequence []insn.Instruction
-	SubCode  []*value.Code
+	Sp   int
+	Code *value.Code
 }
 
 func isTrue(v value.Value) bool {
@@ -60,18 +41,22 @@ func isTrue(v value.Value) bool {
 	return true
 }
 
-func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
-	if len(vm.reg) < ctx.Sp+ctx.NumRegs {
+func (vm *VM) ExecuteContext(ctx ExecuteContext) error {
+	if len(vm.reg) < ctx.Sp+ctx.Code.NumRegs {
 		panic("out of registers")
 	}
 
-	reg := vm.reg[ctx.Sp:]
+	var (
+		ip   int
+		reg  = vm.reg[ctx.Sp:]
+		seq  = ctx.Code.Instructions
+		lits = ctx.Code.Literals
+	)
 
-	max := len(ctx.Sequence)
+	max := len(seq)
 
-	var ip int
 	for ip < max {
-		i := ctx.Sequence[ip]
+		i := seq[ip]
 
 		ip++
 
@@ -87,11 +72,7 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 		case insn.CopyReg:
 			reg[i.R0()] = vm.reg[i.R1()]
 		case insn.Call0:
-			res, err := vm.invokeN(
-				reg[i.R1()],
-				nil,
-				ctx.Literals[i.R2()],
-			)
+			res, err := vm.callN(reg[i.R1()], nil, lits[i.R2()])
 			if err != nil {
 				return err
 			}
@@ -100,10 +81,10 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 
 			reg[i.R0()] = res
 		case insn.CallN:
-			res, err := vm.invokeN(
+			res, err := vm.callN(
 				reg[i.R1()],
 				reg[i.R1()+1:int64(i.R1())+i.Rest2()+1],
-				ctx.Literals[i.R2()],
+				lits[i.R2()],
 			)
 			if err != nil {
 				return err
@@ -119,7 +100,12 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 		case insn.CreateLambda:
 			reg[i.R0()] = vm.createLambda(ctx, i.R1(), i.Rest1())
 		case insn.Invoke:
-			reg[i.R0()] = vm.invoke(ctx, reg[i.R1()], i.Rest1())
+			res, err := vm.invoke(ctx, reg[i.R1()], i.Rest1())
+			if err != nil {
+				return nil
+			}
+
+			reg[i.R0()] = res
 		default:
 			panic(fmt.Sprintf("unknown op: %s", i.Op()))
 		}
@@ -128,24 +114,6 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 	return nil
 }
 
-func (vm *VM) createLambda(ctx *ExecuteContext, args int, code int64) *value.Lambda {
-	return value.CreateLambda(ctx.SubCode[code], args)
-}
-
-func (vm *VM) invoke(ctx *ExecuteContext, val value.Value, args int64) value.Value {
-	l := val.(*value.Lambda)
-
-	sub := &ExecuteContext{
-		NumRegs:  l.Code.NumRegs,
-		Sequence: l.Code.Instructions,
-		Literals: l.Code.Literals,
-		Sp:       ctx.Sp + ctx.NumRegs,
-	}
-
-	err := vm.ExecuteContext(sub)
-	if err != nil {
-		panic(err)
-	}
-
-	return vm.reg[sub.Sp]
+func (vm *VM) createLambda(ctx ExecuteContext, args int, code int64) *value.Lambda {
+	return value.CreateLambda(ctx.Code.SubCode[code], args)
 }

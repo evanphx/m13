@@ -22,7 +22,14 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		err = vm.ExecuteSeq(seq)
+		ctx := ExecuteContext{
+			Code: &value.Code{
+				NumRegs:      1,
+				Instructions: seq,
+			},
+		}
+
+		err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(builtin.I64)
@@ -41,7 +48,14 @@ func TestVM(t *testing.T) {
 
 		vm.reg[1] = builtin.I64(47)
 
-		err = vm.ExecuteSeq(seq)
+		ctx := ExecuteContext{
+			Code: &value.Code{
+				NumRegs:      1,
+				Instructions: seq,
+			},
+		}
+
+		err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(builtin.I64)
@@ -54,7 +68,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		val, err := vm.invokeOp(builtin.I64(3), builtin.I64(4), "+")
+		val, err := vm.callN(builtin.I64(3), []value.Value{builtin.I64(4)}, "+")
 		require.NoError(t, err)
 
 		i, ok := val.(builtin.I64)
@@ -70,10 +84,12 @@ func TestVM(t *testing.T) {
 		seq = append(seq, insn.Store(1, insn.Int(4)))
 		seq = append(seq, insn.CallOp(0, 0, 0))
 
-		ctx := &ExecuteContext{
-			NumRegs:  2,
-			Literals: []string{"+"},
-			Sequence: seq,
+		ctx := ExecuteContext{
+			Code: &value.Code{
+				NumRegs:      2,
+				Literals:     []string{"+"},
+				Instructions: seq,
+			},
 		}
 
 		vm, err := NewVM()
@@ -99,9 +115,11 @@ func TestVM(t *testing.T) {
 		seq = append(seq, insn.Store(0, insn.Int(4)))
 		seq = append(seq, insn.Instruction(insn.Noop))
 
-		ctx := &ExecuteContext{
-			NumRegs:  2,
-			Sequence: seq,
+		ctx := ExecuteContext{
+			Code: &value.Code{
+				NumRegs:      2,
+				Instructions: seq,
+			},
 		}
 
 		vm, err := NewVM()
@@ -130,10 +148,12 @@ func TestVM(t *testing.T) {
 			insn.Builder.Noop(),
 		)
 
-		ctx := &ExecuteContext{
-			NumRegs:  3,
-			Sequence: seq,
-			Literals: []string{"<", "++"},
+		ctx := ExecuteContext{
+			Code: &value.Code{
+				NumRegs:      3,
+				Instructions: seq,
+				Literals:     []string{"<", "++"},
+			},
 		}
 
 		vm, err := NewVM()
@@ -163,10 +183,12 @@ func TestVM(t *testing.T) {
 			},
 		}
 
-		ctx := &ExecuteContext{
-			NumRegs:  1,
-			Sequence: seq,
-			SubCode:  []*value.Code{c1},
+		ctx := ExecuteContext{
+			Code: &value.Code{
+				NumRegs:      1,
+				Instructions: seq,
+				SubCode:      []*value.Code{c1},
+			},
 		}
 
 		vm, err := NewVM()

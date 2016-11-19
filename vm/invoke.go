@@ -38,18 +38,26 @@ func (vm *VM) MustFindType(globalName string) *value.Type {
 	return t
 }
 
-func (vm *VM) invokeOp(l, r value.Value, op string) (value.Value, error) {
-	if t, ok := l.Type(vm).Methods[op]; ok {
-		return t.F(vm, l, []value.Value{r})
-	}
-
-	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Type: l.Type(vm)})
-}
-
-func (vm *VM) invokeN(recv value.Value, args []value.Value, op string) (value.Value, error) {
+func (vm *VM) callN(recv value.Value, args []value.Value, op string) (value.Value, error) {
 	if t, ok := recv.Type(vm).Methods[op]; ok {
 		return t.F(vm, recv, args)
 	}
 
 	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Type: recv.Type(vm)})
+}
+
+func (vm *VM) invoke(ctx ExecuteContext, val value.Value, args int64) (value.Value, error) {
+	l := val.(*value.Lambda)
+
+	sub := ExecuteContext{
+		Sp:   ctx.Sp + ctx.Code.NumRegs,
+		Code: l.Code,
+	}
+
+	err := vm.ExecuteContext(sub)
+	if err != nil {
+		return nil, err
+	}
+
+	return vm.reg[sub.Sp], nil
 }

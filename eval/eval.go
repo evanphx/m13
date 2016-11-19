@@ -41,12 +41,19 @@ func (e *Evaluator) Eval(code string) (value.Value, error) {
 		return nil, err
 	}
 
+	ctx := vm.ExecuteContext{
+		Code: &value.Code{
+			NumRegs:      1,
+			Instructions: g.Sequence(),
+		},
+	}
+
 	vm, err := vm.NewVM()
 	if err != nil {
 		return nil, err
 	}
 
-	err = vm.ExecuteSeq(g.Sequence())
+	err = vm.ExecuteContext(ctx)
 	if err != nil {
 		return nil, err
 	}
