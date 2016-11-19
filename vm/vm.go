@@ -41,9 +41,11 @@ func (vm *VM) ExecuteSeq(seq []insn.Instruction) error {
 }
 
 type ExecuteContext struct {
+	Sp       int
 	NumRegs  int
 	Literals []string
 	Sequence []insn.Instruction
+	SubCode  []*value.Code
 }
 
 func isTrue(v value.Value) bool {
@@ -59,9 +61,11 @@ func isTrue(v value.Value) bool {
 }
 
 func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
-	if len(vm.reg) < ctx.NumRegs {
-		vm.reg = make([]value.Value, ctx.NumRegs)
+	if len(vm.reg) < ctx.Sp+ctx.NumRegs {
+		panic("out of registers")
 	}
+
+	reg := vm.reg[ctx.Sp:]
 
 	max := len(ctx.Sequence)
 
@@ -77,14 +81,14 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 		case insn.Noop:
 			// nothing
 		case insn.Reset:
-			vm.reg[i.R0()] = nil
+			reg[i.R0()] = nil
 		case insn.StoreInt:
-			vm.reg[i.R0()] = builtin.MakeI64(i.Data())
+			reg[i.R0()] = builtin.MakeI64(i.Data())
 		case insn.CopyReg:
-			vm.reg[i.R0()] = vm.reg[i.R1()]
+			reg[i.R0()] = vm.reg[i.R1()]
 		case insn.Call0:
 			res, err := vm.invokeN(
-				vm.reg[i.R1()],
+				reg[i.R1()],
 				nil,
 				ctx.Literals[i.R2()],
 			)
@@ -94,28 +98,54 @@ func (vm *VM) ExecuteContext(ctx *ExecuteContext) error {
 
 			// fmt.Printf("set %d: %+v (%T)\n", i.R0(), res, res)
 
-			vm.reg[i.R0()] = res
+			reg[i.R0()] = res
 		case insn.CallN:
 			res, err := vm.invokeN(
-				vm.reg[i.R1()],
-				vm.reg[i.R1()+1:int64(i.R1())+i.Rest2()+1],
+				reg[i.R1()],
+				reg[i.R1()+1:int64(i.R1())+i.Rest2()+1],
 				ctx.Literals[i.R2()],
 			)
 			if err != nil {
 				return err
 			}
 
-			vm.reg[i.R0()] = res
+			reg[i.R0()] = res
 		case insn.GIF:
-			if !isTrue(vm.reg[i.R0()]) {
+			if !isTrue(reg[i.R0()]) {
 				ip = int(i.Data())
 			}
 		case insn.Goto:
 			ip = int(i.Data())
+		case insn.CreateLambda:
+			reg[i.R0()] = vm.createLambda(ctx, i.R1(), i.Rest1())
+		case insn.Invoke:
+			reg[i.R0()] = vm.invoke(ctx, reg[i.R1()], i.Rest1())
 		default:
 			panic(fmt.Sprintf("unknown op: %s", i.Op()))
 		}
 	}
 
 	return nil
+}
+
+func (vm *VM) createLambda(ctx *ExecuteContext, args int, code int64) *value.Lambda {
+	return value.CreateLambda(ctx.SubCode[code], args)
+}
+
+func (vm *VM) invoke(ctx *ExecuteContext, val value.Value, args int64) value.Value {
+	l := val.(*value.Lambda)
+
+	sub := &ExecuteContext{
+		NumRegs:  l.Code.NumRegs,
+		Sequence: l.Code.Instructions,
+		Literals: l.Code.Literals,
+		Sp:       ctx.Sp + ctx.NumRegs,
+	}
+
+	err := vm.ExecuteContext(sub)
+	if err != nil {
+		panic(err)
+	}
+
+	return vm.reg[sub.Sp]
 }

@@ -14,6 +14,7 @@ const (
 	Call0        Op = 7
 	Goto         Op = 8
 	CreateLambda Op = 9
+	Invoke       Op = 10
 )
 
 type Instruction int64
@@ -147,6 +148,17 @@ func (_ BuilderType) CreateLambda(dest, args, sub int) Instruction {
 	out |= (Instruction(dest) << Reg0Shift)
 	out |= (Instruction(args) << Reg1Shift)
 	out |= (Instruction(sub) << Rest1Shift)
+
+	return out
+}
+
+func (_ BuilderType) Invoke(dest, obj, args int) Instruction {
+	var out Instruction
+
+	out |= Instruction(Invoke)
+	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(obj) << Reg1Shift)
+	out |= (Instruction(args) << Rest1Shift)
 
 	return out
 }

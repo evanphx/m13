@@ -5,6 +5,7 @@ import (
 
 	"github.com/evanphx/m13/builtin"
 	"github.com/evanphx/m13/insn"
+	"github.com/evanphx/m13/value"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vektra/neko"
@@ -133,6 +134,39 @@ func TestVM(t *testing.T) {
 			NumRegs:  3,
 			Sequence: seq,
 			Literals: []string{"<", "++"},
+		}
+
+		vm, err := NewVM()
+		require.NoError(t, err)
+
+		err = vm.ExecuteContext(ctx)
+		require.NoError(t, err)
+
+		val, ok := vm.reg[0].(builtin.I64)
+		require.True(t, ok)
+
+		assert.Equal(t, builtin.I64(3), val)
+	})
+
+	n.Only("can create and invoke lambda", func() {
+		var seq []insn.Instruction
+
+		seq = append(seq,
+			insn.Builder.CreateLambda(0, 0, 0),
+			insn.Builder.Invoke(0, 0, 0),
+		)
+
+		c1 := &value.Code{
+			NumRegs: 1,
+			Instructions: []insn.Instruction{
+				insn.Store(0, insn.Int(3)),
+			},
+		}
+
+		ctx := &ExecuteContext{
+			NumRegs:  1,
+			Sequence: seq,
+			SubCode:  []*value.Code{c1},
 		}
 
 		vm, err := NewVM()

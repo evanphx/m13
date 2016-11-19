@@ -4,9 +4,9 @@ package insn
 
 import "fmt"
 
-const _Op_name = "NoopStoreIntCopyRegCallNResetReturnGIFCall0Goto"
+const _Op_name = "NoopStoreIntCopyRegCallNResetReturnGIFCall0GotoCreateLambdaInvoke"
 
-var _Op_index = [...]uint8{0, 4, 12, 19, 24, 29, 35, 38, 43, 47}
+var _Op_index = [...]uint8{0, 4, 12, 19, 24, 29, 35, 38, 43, 47, 59, 65}
 
 func (i Op) String() string {
 	if i < 0 || i >= Op(len(_Op_index)-1) {
