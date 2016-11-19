@@ -29,7 +29,7 @@ func TestVM(t *testing.T) {
 			},
 		}
 
-		err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(builtin.I64)
@@ -55,7 +55,7 @@ func TestVM(t *testing.T) {
 			},
 		}
 
-		err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(builtin.I64)
@@ -97,7 +97,7 @@ func TestVM(t *testing.T) {
 
 		vm.reg[1] = builtin.I64(47)
 
-		err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(builtin.I64)
@@ -125,7 +125,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(builtin.I64)
@@ -159,7 +159,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(builtin.I64)
@@ -168,18 +168,20 @@ func TestVM(t *testing.T) {
 		assert.Equal(t, builtin.I64(3), val)
 	})
 
-	n.Only("can create and invoke lambda", func() {
+	n.It("can create and invoke lambda", func() {
 		var seq []insn.Instruction
 
 		seq = append(seq,
 			insn.Builder.CreateLambda(0, 0, 0),
 			insn.Builder.Invoke(0, 0, 0),
+			insn.Builder.Return(0),
 		)
 
 		c1 := &value.Code{
 			NumRegs: 1,
 			Instructions: []insn.Instruction{
 				insn.Builder.Store(0, insn.Int(3)),
+				insn.Builder.Return(0),
 			},
 		}
 
@@ -194,14 +196,48 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		err = vm.ExecuteContext(ctx)
+		val, err := vm.ExecuteContext(ctx)
+		require.NoError(t, err)
+
+		assert.Equal(t, builtin.I64(3), val)
+	})
+
+	n.It("passes arguments into a lambda", func() {
+		var seq []insn.Instruction
+
+		seq = append(seq,
+			insn.Builder.CreateLambda(0, 0, 0),
+			insn.Builder.Store(1, insn.Int(3)),
+			insn.Builder.Invoke(0, 0, 1),
+		)
+
+		c1 := &value.Code{
+			NumRegs: 1,
+			Instructions: []insn.Instruction{
+				insn.Builder.Call0(0, 0, 0),
+				insn.Builder.Return(0),
+			},
+			Literals: []string{"++"},
+		}
+
+		ctx := ExecuteContext{
+			Code: &value.Code{
+				NumRegs:      1,
+				Instructions: seq,
+				SubCode:      []*value.Code{c1},
+			},
+		}
+
+		vm, err := NewVM()
+		require.NoError(t, err)
+
+		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(builtin.I64)
 		require.True(t, ok)
 
-		assert.Equal(t, builtin.I64(3), val)
+		assert.Equal(t, builtin.I64(4), val)
 	})
-
 	n.Meow()
 }

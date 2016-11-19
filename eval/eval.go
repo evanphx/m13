@@ -36,7 +36,7 @@ func (e *Evaluator) Eval(code string) (value.Value, error) {
 		return nil, err
 	}
 
-	err = g.Generate(tree)
+	err = g.GenerateTop(tree)
 	if err != nil {
 		return nil, err
 	}
@@ -53,10 +53,5 @@ func (e *Evaluator) Eval(code string) (value.Value, error) {
 		return nil, err
 	}
 
-	err = vm.ExecuteContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return vm.Reg(0), nil
+	return vm.ExecuteContext(ctx)
 }

@@ -54,10 +54,5 @@ func (vm *VM) invoke(ctx ExecuteContext, val value.Value, args int64) (value.Val
 		Code: l.Code,
 	}
 
-	err := vm.ExecuteContext(sub)
-	if err != nil {
-		return nil, err
-	}
-
-	return vm.reg[sub.Sp], nil
+	return vm.ExecuteContext(sub)
 }

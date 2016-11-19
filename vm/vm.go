@@ -41,7 +41,7 @@ func isTrue(v value.Value) bool {
 	return true
 }
 
-func (vm *VM) ExecuteContext(ctx ExecuteContext) error {
+func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
 	if len(vm.reg) < ctx.Sp+ctx.Code.NumRegs {
 		panic("out of registers")
 	}
@@ -74,7 +74,7 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) error {
 		case insn.Call0:
 			res, err := vm.callN(reg[i.R1()], nil, lits[i.R2()])
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			// fmt.Printf("set %d: %+v (%T)\n", i.R0(), res, res)
@@ -87,7 +87,7 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) error {
 				lits[i.R2()],
 			)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			reg[i.R0()] = res
@@ -102,16 +102,18 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) error {
 		case insn.Invoke:
 			res, err := vm.invoke(ctx, reg[i.R1()], i.Rest1())
 			if err != nil {
-				return nil
+				return nil, err
 			}
 
 			reg[i.R0()] = res
+		case insn.Return:
+			return reg[i.R0()], nil
 		default:
 			panic(fmt.Sprintf("unknown op: %s", i.Op()))
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (vm *VM) createLambda(ctx ExecuteContext, args int, code int64) *value.Lambda {

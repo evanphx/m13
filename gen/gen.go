@@ -48,6 +48,17 @@ func (g *Generator) Sequence() []insn.Instruction {
 	return g.seq
 }
 
+func (g *Generator) GenerateTop(gn ast.Node) error {
+	err := g.Generate(gn)
+	if err != nil {
+		return err
+	}
+
+	g.seq = append(g.seq, insn.Builder.Return(0))
+
+	return nil
+}
+
 func (g *Generator) Generate(gn ast.Node) error {
 	switch n := gn.(type) {
 	case *ast.Integer:

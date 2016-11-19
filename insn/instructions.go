@@ -163,4 +163,13 @@ func (_ BuilderType) Invoke(dest, obj, args int) Instruction {
 	return out
 }
 
+func (_ BuilderType) Return(reg int) Instruction {
+	var out Instruction
+
+	out |= Instruction(Return)
+	out |= (Instruction(reg) << Reg0Shift)
+
+	return out
+}
+
 var Builder BuilderType
