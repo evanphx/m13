@@ -19,7 +19,24 @@ type False struct{}
 type Nil struct{}
 
 type Variable struct {
-	Name string
+	Name  string
+	Ref   bool
+	Index int
+}
+
+type Scope struct {
+	Locals []string
+	Refs   []string
+}
+
+func (s *Scope) RefIndex(name string) int {
+	for idx, ref := range s.Refs {
+		if name == ref {
+			return idx
+		}
+	}
+
+	return -1
 }
 
 type Call struct {
@@ -30,12 +47,15 @@ type Call struct {
 
 type Assign struct {
 	Name  string
+	Ref   bool
+	Index int
 	Value Node
 }
 
 type Lambda struct {
-	Args []string
-	Expr Node
+	Args  []string
+	Scope *Scope
+	Expr  Node
 }
 
 type Block struct {

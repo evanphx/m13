@@ -15,7 +15,7 @@ type Generator struct {
 	locals   map[string]int
 	literals []string
 
-	subSequences [][]insn.Instruction
+	subSequences []*Generator
 }
 
 func NewGenerator() (*Generator, error) {
@@ -60,25 +60,38 @@ func (g *Generator) GenerateTop(gn ast.Node) error {
 }
 
 func (g *Generator) Generate(gn ast.Node) error {
+	scope := NewScope()
+
+	err := g.walkScope(gn, scope)
+	if err != nil {
+		return err
+	}
+
+	sc := scope.Close()
+
+	g.sp += len(sc.Locals)
+
+	err = g.GenerateScoped(gn, sc)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 	switch n := gn.(type) {
 	case *ast.Integer:
 		g.seq = append(g.seq, insn.Builder.Store(g.sp, insn.Int(n.Value)))
-	case *ast.Assign:
-		err := g.Generate(n.Value)
-		if err != nil {
-			return err
-		}
-
-		g.seq = append(g.seq, insn.Builder.StoreReg(0, g.sp))
 	case *ast.Op:
-		err := g.Generate(n.Left)
+		err := g.GenerateScoped(n.Left, scope)
 		if err != nil {
 			return err
 		}
 
 		g.sp++
 
-		err = g.Generate(n.Right)
+		err = g.GenerateScoped(n.Right, scope)
 		if err != nil {
 			return err
 		}
@@ -91,13 +104,13 @@ func (g *Generator) Generate(gn ast.Node) error {
 		g.seq = append(g.seq, insn.Builder.CallOp(g.sp, g.sp, idx))
 	case *ast.Block:
 		for _, ex := range n.Expressions {
-			err := g.Generate(ex)
+			err := g.GenerateScoped(ex, scope)
 			if err != nil {
 				return err
 			}
 		}
 	case *ast.If:
-		err := g.Generate(n.Cond)
+		err := g.GenerateScoped(n.Cond, scope)
 		if err != nil {
 			return err
 		}
@@ -108,7 +121,7 @@ func (g *Generator) Generate(gn ast.Node) error {
 
 		g.seq = append(g.seq, insn.Builder.GotoIfFalse(patchSp, 0))
 
-		err = g.Generate(n.Body)
+		err = g.GenerateScoped(n.Body, scope)
 		if err != nil {
 			return err
 		}
@@ -117,7 +130,7 @@ func (g *Generator) Generate(gn ast.Node) error {
 	case *ast.While:
 		condPos := len(g.seq)
 
-		err := g.Generate(n.Cond)
+		err := g.GenerateScoped(n.Cond, scope)
 		if err != nil {
 			return err
 		}
@@ -128,7 +141,7 @@ func (g *Generator) Generate(gn ast.Node) error {
 
 		g.seq = append(g.seq, insn.Builder.GotoIfFalse(patchSp, 0))
 
-		err = g.Generate(n.Body)
+		err = g.GenerateScoped(n.Body, scope)
 		if err != nil {
 			return err
 		}
@@ -161,22 +174,42 @@ func (g *Generator) Generate(gn ast.Node) error {
 
 		g.seq = append(g.seq, insn.Builder.Call0(reg, reg, lit))
 
+	case *ast.Assign:
+		err := g.GenerateScoped(n.Value, scope)
+		if err != nil {
+			return err
+		}
+
+		if n.Ref {
+			g.seq = append(g.seq, insn.Builder.StoreRef(n.Index, g.sp))
+		} else {
+			g.seq = append(g.seq, insn.Builder.StoreReg(n.Index, g.sp))
+		}
+	case *ast.Variable:
+		if n.Ref {
+			g.seq = append(g.seq, insn.Builder.ReadRef(g.sp, n.Index))
+		} else {
+			g.seq = append(g.seq, insn.Builder.StoreReg(g.sp, n.Index))
+		}
 	case *ast.Lambda:
 		sub, err := NewGenerator()
 		if err != nil {
 			return err
 		}
 
-		err = sub.Generate(n.Expr)
+		err = sub.GenerateScoped(n.Expr, n.Scope)
 		if err != nil {
 			return err
 		}
 
 		pos := len(g.subSequences)
+		g.subSequences = append(g.subSequences, sub)
 
-		g.subSequences = append(g.subSequences, sub.Sequence())
-
-		g.seq = append(g.seq, insn.Builder.CreateLambda(g.sp, 0, 0, pos))
+		g.seq = append(g.seq, insn.Builder.CreateLambda(g.sp, 0, len(n.Scope.Refs), pos))
+		for _, name := range n.Scope.Refs {
+			parentPos := scope.RefIndex(name)
+			g.seq = append(g.seq, insn.Builder.ReadRef(0, parentPos))
+		}
 
 	default:
 		return fmt.Errorf("Unhandled ast type: %T", gn)

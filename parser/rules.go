@@ -48,7 +48,7 @@ func (p *Parser) SetupRules() {
 			return &ast.Atom{lv.Value.(string)}
 		}),
 		r.Type(lex.Word, func(lv *lex.Value) RuleValue {
-			return &ast.Variable{lv.Value.(string)}
+			return &ast.Variable{Name: lv.Value.(string)}
 		}),
 		r.Type(lex.IVar, func(lv *lex.Value) RuleValue {
 			return &ast.IVar{lv.Value.(string)}

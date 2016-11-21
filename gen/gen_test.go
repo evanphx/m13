@@ -31,11 +31,9 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, int64(1), i.Data())
 	})
 
-	n.It("generates bytecode to store a local", func() {
+	n.Only("generates bytecode to store a local", func() {
 		g, err := NewGenerator()
 		require.NoError(t, err)
-
-		g.Reserve(1)
 
 		tree := &ast.Assign{
 			Name:  "a",
@@ -258,13 +256,260 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, 0, i.R1())
 		assert.Equal(t, int64(0), i.Rest1())
 
-		sub := g.subSequences[0]
+		sub := g.subSequences[0].Sequence()
 
 		i = sub[0]
 
 		assert.Equal(t, insn.StoreInt, i.Op())
 		assert.Equal(t, 0, i.R0())
 		assert.Equal(t, int64(3), i.Data())
+	})
+
+	n.It("generates bytecode for a lambda with a capture local", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		tree := &ast.Block{
+			Expressions: []ast.Node{
+				&ast.Assign{
+					Name:  "a",
+					Value: &ast.Integer{Value: 7},
+				},
+				&ast.Lambda{
+					Expr: &ast.Variable{
+						Name: "a",
+					},
+				},
+			},
+		}
+
+		err = g.Generate(tree)
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		i := seq[0]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, int64(7), i.Data())
+
+		i = seq[1]
+
+		assert.Equal(t, insn.StoreRef, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[2]
+
+		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+		assert.Equal(t, 1, i.R2())
+		assert.Equal(t, int64(0), i.Rest2())
+
+		i = seq[3]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 0, i.R1())
+
+		sub := g.subSequences[0].Sequence()
+
+		i = sub[0]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+	})
+
+	n.It("promotes refs through creating lambdas", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		tree := &ast.Block{
+			Expressions: []ast.Node{
+				&ast.Assign{
+					Name:  "a",
+					Value: &ast.Integer{Value: 7},
+				},
+				&ast.Lambda{
+					Expr: &ast.Lambda{
+						Expr: &ast.Variable{
+							Name: "a",
+						},
+					},
+				},
+			},
+		}
+
+		err = g.Generate(tree)
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		i := seq[0]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, int64(7), i.Data())
+
+		i = seq[1]
+
+		assert.Equal(t, insn.StoreRef, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[2]
+
+		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+		assert.Equal(t, 1, i.R2())
+		assert.Equal(t, int64(0), i.Rest2())
+
+		i = seq[3]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 0, i.R1())
+
+		subG := g.subSequences[0]
+		sub := subG.Sequence()
+
+		i = sub[0]
+
+		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+		assert.Equal(t, 1, i.R2())
+		assert.Equal(t, int64(0), i.Rest2())
+
+		i = sub[1]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		subG = subG.subSequences[0]
+		sub = subG.Sequence()
+
+		i = sub[0]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+	})
+
+	n.It("uses refs for only captured locals", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		var (
+			aa = &ast.Assign{
+				Name:  "a",
+				Value: &ast.Integer{Value: 7},
+			}
+			ab = &ast.Assign{
+				Name:  "b",
+				Value: &ast.Integer{Value: 8},
+			}
+			ac = &ast.Assign{
+				Name:  "c",
+				Value: &ast.Integer{Value: 9},
+			}
+			a1 = &ast.Variable{
+				Name: "a",
+			}
+			b1 = &ast.Variable{
+				Name: "b",
+			}
+			c1 = &ast.Variable{
+				Name: "c",
+			}
+			bl = &ast.Variable{
+				Name: "b",
+			}
+			lam = &ast.Lambda{
+				Expr: bl,
+			}
+			a2 = &ast.Variable{
+				Name: "a",
+			}
+			b2 = &ast.Variable{
+				Name: "b",
+			}
+			c2 = &ast.Variable{
+				Name: "c",
+			}
+		)
+		tree := &ast.Block{
+			Expressions: []ast.Node{
+				aa, ab, ac, a1, b1, c1,
+				lam,
+				a2, b2, c2,
+			},
+		}
+
+		err = g.Generate(tree)
+		require.NoError(t, err)
+
+		assert.Equal(t, 0, aa.Index)
+		assert.False(t, aa.Ref)
+		assert.Equal(t, 0, ab.Index)
+		assert.True(t, ab.Ref)
+		assert.Equal(t, 1, ac.Index)
+		assert.False(t, ac.Ref)
+
+		assert.Equal(t, 0, a1.Index)
+		assert.False(t, a1.Ref)
+		assert.Equal(t, 0, b1.Index)
+		assert.True(t, b1.Ref)
+		assert.Equal(t, 1, c1.Index)
+		assert.False(t, c1.Ref)
+
+		assert.Equal(t, 0, a2.Index)
+		assert.False(t, a2.Ref)
+		assert.Equal(t, 0, b2.Index)
+		assert.True(t, b2.Ref)
+		assert.Equal(t, 1, c2.Index)
+		assert.False(t, c2.Ref)
+
+		assert.Equal(t, 0, bl.Index)
+		assert.True(t, bl.Ref)
+
+		seq := g.Sequence()
+
+		i := seq[0]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, int64(7), i.Data())
+
+		i = seq[1]
+
+		assert.Equal(t, insn.StoreRef, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[2]
+
+		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+		assert.Equal(t, 1, i.R2())
+		assert.Equal(t, int64(0), i.Rest2())
+
+		i = seq[3]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 0, i.R1())
+
+		sub := g.subSequences[0].Sequence()
+
+		i = sub[0]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
 	})
 
 	n.Meow()
