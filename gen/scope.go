@@ -14,6 +14,7 @@ type Variable struct {
 }
 
 type Scope struct {
+	Args      []string
 	Parent    *Scope
 	Variables map[string]*Variable
 	Ordered   []*Variable
@@ -53,7 +54,17 @@ func (s *Scope) findRef(name string) int {
 		}
 	}
 
-	panic(fmt.Sprintf("unknown ref: %s", name))
+	panic(fmt.Sprintf("unknown ref: '%s'", name))
+}
+
+func (s *Scope) findArg(name string) int {
+	for i := 0; i < len(s.Args); i++ {
+		if s.Args[i] == name {
+			return i
+		}
+	}
+
+	return -1
 }
 
 func (s *Scope) makeRef(name string) {
@@ -66,10 +77,16 @@ func (s *Scope) makeRef(name string) {
 func (s *Scope) Read(n *ast.Variable) {
 	name := n.Name
 
-	if v, ok := s.Variables[name]; ok {
+	var (
+		v  *Variable
+		ok bool
+	)
+
+	if v, ok = s.Variables[name]; ok {
 		v.Reads = append(v.Reads, n)
 	} else {
-		v := &Variable{
+		v = &Variable{
+			Name:  name,
 			Reads: []*ast.Variable{n},
 		}
 
@@ -79,7 +96,8 @@ func (s *Scope) Read(n *ast.Variable) {
 	}
 
 	if s.Parent != nil {
-		if v := s.Parent.Find(name); v != nil {
+		if pv := s.Parent.Find(name); pv != nil {
+			pv.NeedsRef = true
 			v.NeedsRef = true
 			s.makeRef(name)
 		}
@@ -93,6 +111,7 @@ func (s *Scope) Write(n *ast.Assign) {
 		v.Writes = append(v.Writes, n)
 	} else {
 		v := &Variable{
+			Name:   name,
 			Writes: []*ast.Assign{n},
 		}
 
@@ -110,7 +129,7 @@ func (s *Scope) Write(n *ast.Assign) {
 }
 
 func (s *Scope) Close() *ast.Scope {
-	locals := 0
+	locals := len(s.Args)
 
 	sc := &ast.Scope{
 		Refs: s.Refs,
@@ -130,17 +149,21 @@ func (s *Scope) Close() *ast.Scope {
 				u.Index = ref
 			}
 		} else {
+			idx := s.findArg(v.Name)
+			if idx == -1 {
+				idx = locals
+				locals++
+			}
+
 			sc.Locals = append(sc.Locals, v.Name)
 
 			for _, u := range v.Reads {
-				u.Index = locals
+				u.Index = idx
 			}
 
 			for _, u := range v.Writes {
-				u.Index = locals
+				u.Index = idx
 			}
-
-			locals++
 		}
 	}
 
@@ -213,6 +236,7 @@ func (g *Generator) walkScope(gn ast.Node, scope *Scope) error {
 		scope.Read(n)
 	case *ast.Lambda:
 		subScope := NewScope()
+		subScope.Args = n.Args
 		subScope.Parent = scope
 
 		err := g.walkScope(n.Expr, subScope)

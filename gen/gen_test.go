@@ -31,7 +31,7 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, int64(1), i.Data())
 	})
 
-	n.Only("generates bytecode to store a local", func() {
+	n.It("generates bytecode to store a local", func() {
 		g, err := NewGenerator()
 		require.NoError(t, err)
 
@@ -265,6 +265,73 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, int64(3), i.Data())
 	})
 
+	n.It("generates bytecode for a lambda with args", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		tree := &ast.Lambda{
+			Args: []string{"a", "b"},
+			Expr: &ast.Op{
+				Name: "+",
+				Left: &ast.Op{
+					Name:  "-",
+					Left:  &ast.Variable{Name: "a"},
+					Right: &ast.Integer{Value: 3},
+				},
+				Right: &ast.Variable{Name: "b"},
+			},
+		}
+
+		err = g.Generate(tree)
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		i := seq[0]
+
+		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 2, i.R1())
+		assert.Equal(t, 0, i.R2())
+		assert.Equal(t, int64(0), i.Rest2())
+
+		sub := g.subSequences[0].Sequence()
+
+		i = sub[0]
+
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = sub[1]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 3, i.R0())
+		assert.Equal(t, int64(3), i.Data())
+
+		i = sub[2]
+
+		assert.Equal(t, insn.CallN, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, 2, i.R1())
+		assert.Equal(t, 0, i.R2())
+		assert.Equal(t, int64(1), i.Rest2())
+
+		i = sub[3]
+
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 3, i.R0())
+		assert.Equal(t, 1, i.R1())
+
+		i = sub[4]
+
+		assert.Equal(t, insn.CallN, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, 2, i.R1())
+		assert.Equal(t, 1, i.R2())
+		assert.Equal(t, int64(1), i.Rest2())
+	})
+
 	n.It("generates bytecode for a lambda with a capture local", func() {
 		g, err := NewGenerator()
 		require.NoError(t, err)
@@ -302,7 +369,7 @@ func TestGen(t *testing.T) {
 
 		i = seq[2]
 
-		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, insn.CreateLambda, i.Op(), i.Op())
 		assert.Equal(t, 0, i.R0())
 		assert.Equal(t, 0, i.R1())
 		assert.Equal(t, 1, i.R2())
@@ -317,7 +384,7 @@ func TestGen(t *testing.T) {
 
 		i = sub[0]
 
-		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, insn.ReadRef, i.Op(), i.Op().String())
 		assert.Equal(t, 0, i.R0())
 		assert.Equal(t, 0, i.R1())
 	})
@@ -332,10 +399,21 @@ func TestGen(t *testing.T) {
 					Name:  "a",
 					Value: &ast.Integer{Value: 7},
 				},
+				&ast.Assign{
+					Name:  "b",
+					Value: &ast.Integer{Value: 7},
+				},
 				&ast.Lambda{
-					Expr: &ast.Lambda{
-						Expr: &ast.Variable{
-							Name: "a",
+					Expr: &ast.Block{
+						Expressions: []ast.Node{
+							&ast.Variable{
+								Name: "a",
+							},
+							&ast.Lambda{
+								Expr: &ast.Variable{
+									Name: "b",
+								},
+							},
 						},
 					},
 				},
@@ -361,33 +439,56 @@ func TestGen(t *testing.T) {
 
 		i = seq[2]
 
-		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, insn.StoreInt, i.Op())
 		assert.Equal(t, 0, i.R0())
-		assert.Equal(t, 0, i.R1())
-		assert.Equal(t, 1, i.R2())
-		assert.Equal(t, int64(0), i.Rest2())
+		assert.Equal(t, int64(7), i.Data())
 
 		i = seq[3]
 
+		assert.Equal(t, insn.StoreRef, i.Op())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[4]
+
+		assert.Equal(t, insn.CreateLambda, i.Op(), i.Op().String())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+		assert.Equal(t, 2, i.R2())
+		assert.Equal(t, int64(0), i.Rest2())
+
+		i = seq[5]
+
 		assert.Equal(t, insn.ReadRef, i.Op())
 		assert.Equal(t, 0, i.R1())
+
+		i = seq[6]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 1, i.R1())
 
 		subG := g.subSequences[0]
 		sub := subG.Sequence()
 
 		i = sub[0]
 
-		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = sub[1]
+
+		assert.Equal(t, insn.CreateLambda, i.Op(), i.Op().String())
 		assert.Equal(t, 0, i.R0())
 		assert.Equal(t, 0, i.R1())
 		assert.Equal(t, 1, i.R2())
 		assert.Equal(t, int64(0), i.Rest2())
 
-		i = sub[1]
+		i = sub[2]
 
 		assert.Equal(t, insn.ReadRef, i.Op())
 		assert.Equal(t, 0, i.R0())
-		assert.Equal(t, 0, i.R1())
+		assert.Equal(t, 1, i.R1())
 
 		subG = subG.subSequences[0]
 		sub = subG.Sequence()
@@ -481,24 +582,66 @@ func TestGen(t *testing.T) {
 		i := seq[0]
 
 		assert.Equal(t, insn.StoreInt, i.Op())
-		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 2, i.R0())
 		assert.Equal(t, int64(7), i.Data())
 
 		i = seq[1]
 
-		assert.Equal(t, insn.StoreRef, i.Op())
+		assert.Equal(t, insn.CopyReg, i.Op())
 		assert.Equal(t, 0, i.R0())
-		assert.Equal(t, 0, i.R1())
+		assert.Equal(t, 2, i.R1())
 
 		i = seq[2]
 
-		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, int64(8), i.Data())
+
+		i = seq[3]
+
+		assert.Equal(t, insn.StoreRef, i.Op())
 		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 2, i.R1())
+
+		i = seq[4]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, int64(9), i.Data())
+
+		i = seq[5]
+
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, 2, i.R1())
+
+		i = seq[6]
+
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[7]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[8]
+
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, 1, i.R1())
+
+		i = seq[9]
+
+		assert.Equal(t, insn.CreateLambda, i.Op())
+		assert.Equal(t, 2, i.R0())
 		assert.Equal(t, 0, i.R1())
 		assert.Equal(t, 1, i.R2())
 		assert.Equal(t, int64(0), i.Rest2())
 
-		i = seq[3]
+		i = seq[10]
 
 		assert.Equal(t, insn.ReadRef, i.Op())
 		assert.Equal(t, 0, i.R1())
@@ -510,6 +653,25 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, insn.ReadRef, i.Op())
 		assert.Equal(t, 0, i.R0())
 		assert.Equal(t, 0, i.R1())
+
+		i = seq[11]
+
+		assert.Equal(t, insn.CopyReg, i.Op(), i.Op().String())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[12]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[13]
+
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, 1, i.R1())
+
 	})
 
 	n.Meow()

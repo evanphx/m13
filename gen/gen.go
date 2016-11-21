@@ -197,6 +197,8 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 			return err
 		}
 
+		sub.sp = len(n.Scope.Locals)
+
 		err = sub.GenerateScoped(n.Expr, n.Scope)
 		if err != nil {
 			return err
@@ -205,7 +207,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 		pos := len(g.subSequences)
 		g.subSequences = append(g.subSequences, sub)
 
-		g.seq = append(g.seq, insn.Builder.CreateLambda(g.sp, 0, len(n.Scope.Refs), pos))
+		g.seq = append(g.seq, insn.Builder.CreateLambda(g.sp, len(n.Args), len(n.Scope.Refs), pos))
 		for _, name := range n.Scope.Refs {
 			parentPos := scope.RefIndex(name)
 			g.seq = append(g.seq, insn.Builder.ReadRef(0, parentPos))
