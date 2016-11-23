@@ -61,7 +61,11 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
 
 		ip++
 
-		// fmt.Printf("=> %s\n", i.Op())
+		// fmt.Printf("=> %s r0:%d r1:%d r2:%d data:%d rest1:%d rest2:%d\n",
+		// i.Op(), i.R0(), i.R1(), i.R2(),
+		// i.Data(), i.Rest1(), i.Rest2())
+
+		// fmt.Printf("regs: %d lits: %+v\n", len(reg), lits)
 
 		switch i.Op() {
 		case insn.Noop:
@@ -71,7 +75,7 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
 		case insn.StoreInt:
 			reg[i.R0()] = builtin.MakeI64(i.Data())
 		case insn.CopyReg:
-			reg[i.R0()] = vm.reg[i.R1()]
+			reg[i.R0()] = reg[i.R1()]
 		case insn.Call0:
 			res, err := vm.callN(reg[i.R1()], nil, lits[i.R2()])
 			if err != nil {
@@ -102,7 +106,7 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
 			reg[i.R0()] = vm.createLambda(ctx, i.R1(), vm.refs(ctx, ip, i.R2()), i.Rest2())
 			ip += i.R2()
 		case insn.Invoke:
-			res, err := vm.invoke(ctx, reg[i.R1()], i.Rest1())
+			res, err := vm.invoke(ctx, reg[i.R1():i.R1()+int(i.Rest1()+1)])
 			if err != nil {
 				return nil, err
 			}
@@ -142,5 +146,8 @@ func (vm *VM) refs(ctx ExecuteContext, ip int, sz int) []*value.Ref {
 }
 
 func (vm *VM) createLambda(ctx ExecuteContext, args int, refs []*value.Ref, code int64) *value.Lambda {
+	if int(code) >= len(ctx.Code.SubCode) {
+		panic(fmt.Sprintf("Missing code: %d", code))
+	}
 	return value.CreateLambda(ctx.Code.SubCode[code], refs, args)
 }

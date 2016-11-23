@@ -5,6 +5,7 @@ import (
 
 	"github.com/evanphx/m13/ast"
 	"github.com/evanphx/m13/insn"
+	"github.com/evanphx/m13/value"
 )
 
 type Generator struct {
@@ -48,15 +49,48 @@ func (g *Generator) Sequence() []insn.Instruction {
 	return g.seq
 }
 
-func (g *Generator) GenerateTop(gn ast.Node) error {
-	err := g.Generate(gn)
+func (g *Generator) GenerateTop(gn ast.Node) (*value.Code, error) {
+	scope := NewScope()
+
+	err := g.walkScope(gn, scope)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	g.seq = append(g.seq, insn.Builder.Return(0))
+	sc := scope.Close()
 
-	return nil
+	g.sp += len(sc.Locals)
+
+	err = g.GenerateScoped(gn, sc)
+	if err != nil {
+		return nil, err
+	}
+
+	g.seq = append(g.seq, insn.Builder.Return(len(sc.Locals)))
+
+	return g.Code()
+}
+
+func (g *Generator) Code() (*value.Code, error) {
+	var subs []*value.Code
+
+	for _, sg := range g.subSequences {
+		c, err := sg.Code()
+		if err != nil {
+			return nil, err
+		}
+
+		subs = append(subs, c)
+	}
+
+	code := &value.Code{
+		NumRegs:      10, // TODO calculate
+		Instructions: g.seq,
+		Literals:     g.literals,
+		SubCode:      subs,
+	}
+
+	return code, nil
 }
 
 func (g *Generator) Generate(gn ast.Node) error {
@@ -75,6 +109,19 @@ func (g *Generator) Generate(gn ast.Node) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (g *Generator) GenerateLambda(gn ast.Node, sc *ast.Scope) error {
+	g.sp += len(sc.Locals)
+
+	err := g.GenerateScoped(gn, sc)
+	if err != nil {
+		return err
+	}
+
+	g.seq = append(g.seq, insn.Builder.Return(len(sc.Locals)))
 
 	return nil
 }
@@ -98,8 +145,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 
 		g.sp--
 
-		idx := len(g.literals)
-		g.literals = append(g.literals, n.Name)
+		idx := g.findLiteral(n.Name)
 
 		g.seq = append(g.seq, insn.Builder.CallOp(g.sp, g.sp, idx))
 	case *ast.Block:
@@ -191,15 +237,33 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 		} else {
 			g.seq = append(g.seq, insn.Builder.StoreReg(g.sp, n.Index))
 		}
+	case *ast.Invoke:
+		if n.Ref {
+			g.seq = append(g.seq, insn.Builder.ReadRef(g.sp, n.Index))
+		} else {
+			g.seq = append(g.seq, insn.Builder.StoreReg(g.sp, n.Index))
+		}
+
+		target := g.sp
+
+		for _, arg := range n.Args {
+			g.sp++
+
+			err := g.GenerateScoped(arg, scope)
+			if err != nil {
+				return err
+			}
+		}
+
+		g.seq = append(g.seq, insn.Builder.Invoke(target, target, len(n.Args)))
+		g.sp = target
 	case *ast.Lambda:
 		sub, err := NewGenerator()
 		if err != nil {
 			return err
 		}
 
-		sub.sp = len(n.Scope.Locals)
-
-		err = sub.GenerateScoped(n.Expr, n.Scope)
+		err = sub.GenerateLambda(n.Expr, n.Scope)
 		if err != nil {
 			return err
 		}

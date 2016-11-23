@@ -25,5 +25,19 @@ func TestEvaluator(t *testing.T) {
 		assert.Equal(t, builtin.I64(3), i)
 	})
 
+	n.It("runs a lambda invocation", func() {
+		ev, err := NewEvaluator()
+		require.NoError(t, err)
+
+		val, err := ev.Eval(`a = x => x + 3; a(4)`)
+		require.NoError(t, err)
+
+		i, ok := val.(builtin.I64)
+		require.True(t, ok)
+
+		assert.Equal(t, builtin.I64(7), i)
+
+	})
+
 	n.Meow()
 }

@@ -45,6 +45,13 @@ type Call struct {
 	Args       []Node
 }
 
+type Invoke struct {
+	Name  string
+	Ref   bool
+	Index int
+	Args  []Node
+}
+
 type Assign struct {
 	Name  string
 	Ref   bool

@@ -671,7 +671,61 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, insn.CopyReg, i.Op())
 		assert.Equal(t, 2, i.R0())
 		assert.Equal(t, 1, i.R1())
+	})
 
+	n.It("generates bytecode for an invoke", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		err = g.Generate(&ast.Block{
+			Expressions: []ast.Node{
+				&ast.Assign{
+					Name:  "a",
+					Value: &ast.Integer{Value: 0},
+				},
+				&ast.Invoke{
+					Name: "a",
+					Args: []ast.Node{
+						&ast.Integer{Value: 1},
+					},
+				},
+			},
+		})
+
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		i := seq[0]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, int64(0), i.Data())
+
+		i = seq[1]
+
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 1, i.R1())
+
+		i = seq[2]
+
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[3]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 2, i.R0())
+		assert.Equal(t, int64(1), i.Data())
+
+		i = seq[4]
+
+		assert.Equal(t, insn.Invoke, i.Op())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, 1, i.R1())
+		assert.Equal(t, int64(1), i.Rest1())
 	})
 
 	n.Meow()

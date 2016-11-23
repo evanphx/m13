@@ -106,6 +106,15 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
+	invoke := r.Fs(
+		r.Seq(r.T(lex.Word), r.T(lex.OpenParen), argList, r.T(lex.CloseParen)),
+		func(rv []RuleValue) RuleValue {
+			return &ast.Invoke{
+				Name: rv[0].(*lex.Value).Value.(string),
+				Args: convert(rv[2].([]RuleValue)),
+			}
+		})
+
 	braceBody := r.Fs(
 		r.Seq(r.T(lex.OpenBrace), exprList, r.T(lex.CloseBrace)),
 		func(rv []RuleValue) RuleValue {
@@ -222,7 +231,7 @@ func (p *Parser) SetupRules() {
 
 	expr.Rules = []Rule{
 		lambdaN, lambda1, lambda0,
-		primcallN, primcall0,
+		primcallN, primcall0, invoke,
 		attrAccess, op, prim,
 	}
 

@@ -36,16 +36,13 @@ func (e *Evaluator) Eval(code string) (value.Value, error) {
 		return nil, err
 	}
 
-	err = g.GenerateTop(tree)
+	co, err := g.GenerateTop(tree)
 	if err != nil {
 		return nil, err
 	}
 
 	ctx := vm.ExecuteContext{
-		Code: &value.Code{
-			NumRegs:      1,
-			Instructions: g.Sequence(),
-		},
+		Code: co,
 	}
 
 	vm, err := vm.NewVM()

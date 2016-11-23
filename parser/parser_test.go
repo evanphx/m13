@@ -1112,5 +1112,48 @@ os.stdout().puts("hello m13");`
 		assert.Equal(t, "a", v.Name)
 	})
 
+	n.It("parses a function invoke", func() {
+		lex, err := lex.NewLexer(`a(1)`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		inv, ok := tree.(*ast.Invoke)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", inv.Name)
+
+		require.Equal(t, 1, len(inv.Args))
+
+		lit, ok := inv.Args[0].(*ast.Integer)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(1), lit.Value)
+	})
+
 	n.Meow()
+}
+
+func TestRandomSnippits(t *testing.T) {
+	var snippits = []string{
+		`a(4)`,
+		`a = x => x + 3`,
+		`a = x => x + 3; a(4)`,
+	}
+
+	for _, s := range snippits {
+		t.Logf("parsing: %s", s)
+		lex, err := lex.NewLexer(s)
+		require.NoError(t, err, s)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err, s)
+
+		_, err = parser.Parse()
+		require.NoError(t, err, s)
+	}
 }
