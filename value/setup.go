@@ -1,9 +1,15 @@
 package value
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Setup interface {
 	OpenPackage(name string) *Package
-	MakeType(cfg *TypeConfig) *Type
+	MakeClass(cfg *ClassConfig) *Class
 	MakeMethod(cfg *MethodConfig) *Method
+	ApplyMethods(path string, methods []*MethodDescriptor)
 }
 
 type setupFunc func(Setup)
@@ -17,7 +23,12 @@ func RegisterSetup(f setupFunc) error {
 
 type Registry struct {
 	packages PackageRegistry
-	types    map[string]*Type
+	types    map[string]*Class
+
+	Object    *Class
+	Class     *Class
+	BoolClass *Class
+	I64Class  *Class
 }
 
 func NewRegistry() *Registry {
@@ -25,7 +36,12 @@ func NewRegistry() *Registry {
 		packages: PackageRegistry{
 			Packages: make(map[string]*Package),
 		},
-		types: make(map[string]*Type),
+		types: make(map[string]*Class),
+	}
+
+	err := r.Boot()
+	if err != nil {
+		panic(err)
 	}
 
 	for _, f := range setupFuncs {
@@ -35,7 +51,7 @@ func NewRegistry() *Registry {
 	return r
 }
 
-func (r *Registry) FindType(globalName string) (*Type, bool) {
+func (r *Registry) FindClass(globalName string) (*Class, bool) {
 	t, ok := r.types[globalName]
 	if !ok {
 		return nil, false
@@ -50,8 +66,8 @@ func (r *Registry) OpenPackage(name string) *Package {
 	}
 
 	pkg := &Package{
-		Name:  name,
-		Types: make(map[string]*Type),
+		Name:    name,
+		Classes: make(map[string]*Class),
 	}
 
 	r.packages.Packages[name] = pkg
@@ -59,14 +75,14 @@ func (r *Registry) OpenPackage(name string) *Package {
 	return pkg
 }
 
-func (r *Registry) MakeType(cfg *TypeConfig) *Type {
-	typ := &Type{
+func (r *Registry) MakeClass(cfg *ClassConfig) *Class {
+	typ := &Class{
 		Package: cfg.Package,
 		Name:    cfg.Name,
 		Methods: cfg.Methods,
 	}
 
-	cfg.Package.Types[cfg.Name] = typ
+	cfg.Package.Classes[cfg.Name] = typ
 
 	r.types[cfg.GlobalName] = typ
 
@@ -77,5 +93,43 @@ func (r *Registry) MakeMethod(cfg *MethodConfig) *Method {
 	return &Method{
 		Name: cfg.Name,
 		F:    cfg.Func,
+	}
+}
+
+func (r *Registry) ResolveClass(path string) (*Class, error) {
+	dot := strings.LastIndexByte(path, '.')
+
+	var (
+		pkg string
+		cls string
+	)
+
+	if dot == -1 {
+		pkg = "builtin"
+		cls = path
+	} else {
+		pkg = path[:dot]
+		cls = path[dot+1:]
+	}
+
+	if pkg, ok := r.packages.Packages[pkg]; ok {
+		if obj, ok := pkg.Classes[cls]; ok {
+			return obj, nil
+		} else {
+			return nil, fmt.Errorf("Unable to resolve class: %s", path)
+		}
+	} else {
+		return nil, fmt.Errorf("Unable to resolve package: %s", pkg)
+	}
+}
+
+func (r *Registry) ApplyMethods(name string, methods []*MethodDescriptor) {
+	cls, err := r.ResolveClass(name)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, desc := range methods {
+		cls.AddMethod(desc)
 	}
 }

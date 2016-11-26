@@ -14,9 +14,8 @@ type Integer struct{}
 // m13 parent=Integer
 type I64 int64
 
-// m13 parent=Integer
-type BigInt struct {
-	I *big.Int
+func (i I64) Class(env value.Env) *value.Class {
+	return env.I64Class()
 }
 
 // m13 name=+
@@ -40,4 +39,9 @@ func (i I64) lt(j I64) (Bool, error) {
 
 func MakeI64(i int64) value.Value {
 	return I64(i)
+}
+
+// m13 parent=Integer
+type BigInt struct {
+	I *big.Int
 }

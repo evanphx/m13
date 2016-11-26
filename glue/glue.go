@@ -76,7 +76,8 @@ func main() {
 
 	res, err := imports.Process("m13.gen.go", theBytes, opt)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		res = theBytes
 	}
 
 	err = ioutil.WriteFile(filepath.Join(dir, "m13.gen.go"), res, 0644)
@@ -86,12 +87,14 @@ func main() {
 }
 
 type arg struct {
+	Name   string
 	GoType string
 }
 
 type method struct {
 	Name     string
 	GoName   string
+	GenName  string
 	NumArgs  int
 	RecvType string
 	Args     []*arg
@@ -154,12 +157,8 @@ const codeTemplate2 = `
 {{ $pkg := .Package }}
 
 {{range $type := .Types}}
-	func (_ {{.GoName}}) Type(env value.Env) *value.Type {
-		return env.MustFindType("{{.GlobalName}}")
-	}
-
 	{{range .Methods}}
-		func {{.GoName}}_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+		func {{.GenName}}_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
 			if len(args) != {{.NumArgs}} {
 				return env.ArgumentError(len(args), {{.NumArgs}})
 			}
@@ -182,9 +181,30 @@ const codeTemplate2 = `
 
 			return ret, nil
 		}
+
+		var method_desc_{{.GenName}} = &value.MethodDescriptor {
+			Name: "{{.Name}}",
+			Signature: value.Signature{
+				Required: {{.NumArgs}},
+				Args: []string {
+					{{range .Args}}
+						"{{.Name}}",
+					{{end}}
+				},
+			},
+			Func: {{.GenName}}_adapter,
+		}
 	{{end}}
 
+	var methods_{{.Name}} = []*value.MethodDescriptor{
+			{{range .Methods}}
+				method_desc_{{.GenName}},
+			{{end}}
+		}
+
 	func setup_{{.Name}}(setup value.Setup) {
+		setup.ApplyMethods("{{$pkg}}.{{.Name}}", methods_{{.Name}})
+	/*
 		pkg := setup.OpenPackage("{{$pkg}}")
 
 		methods := make(map[string]*value.Method)
@@ -192,17 +212,18 @@ const codeTemplate2 = `
 		{{range .Methods}}
 			methods["{{.Name}}"] = setup.MakeMethod(&value.MethodConfig{
 				Name: "{{.Name}}",
-				Func: {{.GoName}}_adapter,
+				Func: {{.GenName}}_adapter,
 			})
 		{{end}}
 
-		setup.MakeType(&value.TypeConfig{
+		setup.MakeClass(&value.ClassConfig{
 			Package: pkg,
 			Name: "{{.Name}}",
 			Parent: "{{.Parent}}",
 			Methods: methods,
 			GlobalName: "{{.GlobalName}}",
 		})
+	*/
 	}
 
 	var _ = value.RegisterSetup(setup_{{.Name}})
@@ -259,14 +280,32 @@ func genFile(f *ast.File, out io.Writer) {
 				continue
 			}
 
-			recv := fd.Recv.List[0].Type.(*ast.Ident).Name
+			typ := fd.Recv.List[0].Type
+
+			var (
+				recv     string
+				recvType string
+			)
+
+			if ident, ok := typ.(*ast.Ident); ok {
+				recv = ident.Name
+				recvType = ident.Name
+			} else if star, ok := typ.(*ast.StarExpr); ok {
+				recv = star.X.(*ast.Ident).Name
+				recvType = "*" + recv
+			}
+
 			name := fd.Name.Name
 
 			var args []*arg
 
 			for _, field := range fd.Type.Params.List {
-				if id, ok := field.Type.(*ast.Ident); ok {
-					args = append(args, &arg{GoType: id.Name})
+				for _, name := range field.Names {
+					if id, ok := field.Type.(*ast.Ident); ok {
+						args = append(args, &arg{Name: name.Name, GoType: id.Name})
+					} else if st, ok := field.Type.(*ast.StarExpr); ok {
+						args = append(args, &arg{Name: name.Name, GoType: "*" + st.X.(*ast.Ident).Name})
+					}
 				}
 			}
 
@@ -278,8 +317,9 @@ func genFile(f *ast.File, out io.Writer) {
 			meth := &method{
 				GoName:   name,
 				Name:     name,
+				GenName:  fmt.Sprintf("%s_%s", recv, name),
 				NumArgs:  len(args),
-				RecvType: recv,
+				RecvType: recvType,
 				Args:     args,
 			}
 

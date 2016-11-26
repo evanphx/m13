@@ -17,20 +17,20 @@ func (e *ErrArityMismatch) Error() string {
 }
 
 type ErrUnknownOp struct {
-	Op   string
-	Type *value.Type
+	Op    string
+	Class *value.Class
 }
 
 func (e *ErrUnknownOp) Error() string {
-	return fmt.Sprintf("unknown operation '%s' on '%s", e.Op, e.Type.FullName())
+	return fmt.Sprintf("unknown operation '%s' on '%s", e.Op, e.Class.FullName())
 }
 
 func (vm *VM) ArgumentError(got, need int) (value.Value, error) {
 	return nil, &ErrArityMismatch{Got: got, Need: need}
 }
 
-func (vm *VM) MustFindType(globalName string) *value.Type {
-	t, ok := vm.registry.FindType(globalName)
+func (vm *VM) MustFindClass(globalName string) *value.Class {
+	t, ok := vm.registry.FindClass(globalName)
 	if !ok {
 		panic(fmt.Sprintf("unknown type: %s", globalName))
 	}
@@ -39,11 +39,11 @@ func (vm *VM) MustFindType(globalName string) *value.Type {
 }
 
 func (vm *VM) callN(recv value.Value, args []value.Value, op string) (value.Value, error) {
-	if t, ok := recv.Type(vm).Methods[op]; ok {
+	if t, ok := recv.Class(vm).Methods[op]; ok {
 		return t.F(vm, recv, args)
 	}
 
-	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Type: recv.Type(vm)})
+	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Class: recv.Class(vm)})
 }
 
 func (vm *VM) invoke(ctx ExecuteContext, args []value.Value) (value.Value, error) {

@@ -36,7 +36,19 @@ func TestEvaluator(t *testing.T) {
 		require.True(t, ok)
 
 		assert.Equal(t, builtin.I64(7), i)
+	})
 
+	n.It("runs a method call", func() {
+		ev, err := NewEvaluator()
+		require.NoError(t, err)
+
+		val, err := ev.Eval(`1.class`)
+		require.NoError(t, err)
+
+		i, ok := val.(builtin.I64)
+		require.True(t, ok)
+
+		assert.Equal(t, builtin.I64(7), i)
 	})
 
 	n.Meow()

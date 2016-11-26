@@ -24,6 +24,18 @@ func (vm *VM) Reg(i int) value.Value {
 	return vm.reg[i]
 }
 
+func (vm *VM) Class() *value.Class {
+	return vm.registry.Class
+}
+
+func (vm *VM) BoolClass() *value.Class {
+	return vm.registry.BoolClass
+}
+
+func (vm *VM) I64Class() *value.Class {
+	return vm.registry.I64Class
+}
+
 type ExecuteContext struct {
 	Sp   int
 	Code *value.Code

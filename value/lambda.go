@@ -14,6 +14,6 @@ func CreateLambda(code *Code, refs []*Ref, args int) *Lambda {
 	return &Lambda{code, args, refs}
 }
 
-func (l *Lambda) Type(env Env) *Type {
+func (l *Lambda) Class(env Env) *Class {
 	return nil
 }

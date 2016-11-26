@@ -7,11 +7,11 @@ type PackageRegistry struct {
 }
 
 type Package struct {
-	Name  string
-	Types map[string]*Type
+	Name    string
+	Classes map[string]*Class
 }
 
-type TypeConfig struct {
+type ClassConfig struct {
 	Package    *Package
 	Name       string
 	GlobalName string
@@ -19,24 +19,40 @@ type TypeConfig struct {
 	Methods    map[string]*Method
 }
 
-type Type struct {
+type Class struct {
+	Object
+
+	metaclass bool
+
+	Parent     *Class
 	Package    *Package
 	Name       string
 	GlobalName string
-	Parent     *Type
 	Methods    map[string]*Method
 }
 
-func (t *Type) FullName() string {
+func (c *Class) Class(env Env) *Class {
+	return c.class
+}
+
+func (t *Class) FullName() string {
 	return fmt.Sprintf("%s.%s", t.Package.Name, t.Name)
 }
 
 type MethodConfig struct {
-	Name string
-	Func func(env Env, recv Value, args []Value) (Value, error)
+	Name      string
+	Signature Signature
+	Func      func(env Env, recv Value, args []Value) (Value, error)
 }
 
 type Method struct {
-	Name string
-	F    func(env Env, recv Value, args []Value) (Value, error)
+	Name      string
+	Signature Signature
+	F         func(env Env, recv Value, args []Value) (Value, error)
+}
+
+type MethodDescriptor struct {
+	Name      string
+	Signature Signature
+	Func      func(env Env, recv Value, args []Value) (Value, error)
 }

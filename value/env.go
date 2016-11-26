@@ -1,6 +1,9 @@
 package value
 
 type Env interface {
-	MustFindType(name string) *Type
+	MustFindClass(name string) *Class
 	ArgumentError(expected, received int) (Value, error)
+	Class() *Class
+	I64Class() *Class
+	BoolClass() *Class
 }
