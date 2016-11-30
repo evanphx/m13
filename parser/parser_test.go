@@ -498,147 +498,6 @@ func TestParser(t *testing.T) {
 		assert.Equal(t, []string{"a", "b", "c"}, i.Path)
 	})
 
-	n.It("parses an attribute access", func() {
-		lex, err := lex.NewLexer(`a.b`)
-		require.NoError(t, err)
-
-		parser, err := NewParser(lex)
-		require.NoError(t, err)
-
-		tree, err := parser.Parse()
-		require.NoError(t, err)
-
-		attr, ok := tree.(*ast.Attribute)
-		require.True(t, ok)
-
-		assert.Equal(t, "b", attr.Name)
-
-		obj, ok := attr.Receiver.(*ast.Variable)
-		require.True(t, ok)
-
-		assert.Equal(t, "a", obj.Name)
-	})
-
-	n.It("parses a nested attribute access", func() {
-		lex, err := lex.NewLexer(`a.b.c`)
-		require.NoError(t, err)
-
-		parser, err := NewParser(lex)
-		require.NoError(t, err)
-
-		tree, err := parser.Parse()
-		require.NoError(t, err)
-
-		attr, ok := tree.(*ast.Attribute)
-		require.True(t, ok)
-
-		assert.Equal(t, "c", attr.Name)
-
-		attr2, ok := attr.Receiver.(*ast.Attribute)
-		require.True(t, ok)
-
-		assert.Equal(t, "b", attr2.Name)
-
-		obj, ok := attr2.Receiver.(*ast.Variable)
-		require.True(t, ok)
-
-		assert.Equal(t, "a", obj.Name)
-	})
-
-	n.It("parses a gnarly attr+call chain", func() {
-		lex, err := lex.NewLexer(`a.b.c().d.e().f`)
-		require.NoError(t, err)
-
-		parser, err := NewParser(lex)
-		require.NoError(t, err)
-
-		tree, err := parser.Parse()
-		require.NoError(t, err)
-
-		attr, ok := tree.(*ast.Attribute)
-		require.True(t, ok)
-
-		assert.Equal(t, "f", attr.Name)
-
-		call, ok := attr.Receiver.(*ast.Call)
-		require.True(t, ok)
-
-		assert.Equal(t, "e", call.MethodName)
-	})
-
-	n.It("parses an attribute access off a call", func() {
-		lex, err := lex.NewLexer(`a.c().b`)
-		require.NoError(t, err)
-
-		parser, err := NewParser(lex)
-		require.NoError(t, err)
-
-		tree, err := parser.Parse()
-		require.NoError(t, err)
-
-		attr, ok := tree.(*ast.Attribute)
-		require.True(t, ok)
-
-		assert.Equal(t, "b", attr.Name)
-
-		obj, ok := attr.Receiver.(*ast.Call)
-		require.True(t, ok)
-
-		assert.Equal(t, "c", obj.MethodName)
-	})
-
-	n.It("parses an attribute assign", func() {
-		lex, err := lex.NewLexer(`a.b = 3`)
-		require.NoError(t, err)
-
-		parser, err := NewParser(lex)
-		require.NoError(t, err)
-
-		tree, err := parser.Parse()
-		require.NoError(t, err)
-
-		attr, ok := tree.(*ast.AttributeAssign)
-		require.True(t, ok)
-
-		assert.Equal(t, "b", attr.Name)
-
-		obj, ok := attr.Receiver.(*ast.Variable)
-		require.True(t, ok)
-
-		assert.Equal(t, "a", obj.Name)
-
-		val, ok := attr.Value.(*ast.Integer)
-		require.True(t, ok)
-
-		assert.Equal(t, int64(3), val.Value)
-	})
-
-	n.It("parses an attribute assign off a call", func() {
-		lex, err := lex.NewLexer(`a.c().b = 3`)
-		require.NoError(t, err)
-
-		parser, err := NewParser(lex)
-		require.NoError(t, err)
-
-		tree, err := parser.Parse()
-		require.NoError(t, err)
-
-		attr, ok := tree.(*ast.AttributeAssign)
-		require.True(t, ok)
-
-		assert.Equal(t, "b", attr.Name)
-
-		obj, ok := attr.Receiver.(*ast.Call)
-		require.True(t, ok)
-
-		assert.Equal(t, "c", obj.MethodName)
-
-		val, ok := attr.Value.(*ast.Integer)
-		require.True(t, ok)
-
-		assert.Equal(t, int64(3), val.Value)
-	})
-
 	n.It("parses a test program", func() {
 		prog := `import os; os.stdout().puts("hello m13")`
 
@@ -1156,4 +1015,193 @@ func TestRandomSnippits(t *testing.T) {
 		_, err = parser.Parse()
 		require.NoError(t, err, s)
 	}
+}
+
+func TestMethodParses(t *testing.T) {
+	n := neko.Start(t)
+
+	n.It("parses an attribute access", func() {
+		lex, err := lex.NewLexer(`a.b`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		attr, ok := tree.(*ast.Attribute)
+		require.True(t, ok)
+
+		assert.Equal(t, "b", attr.Name)
+
+		obj, ok := attr.Receiver.(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", obj.Name)
+	})
+
+	n.It("parses an attribute access off a number", func() {
+		lex, err := lex.NewLexer(`1.b`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		attr, ok := tree.(*ast.Attribute)
+		require.True(t, ok)
+
+		assert.Equal(t, "b", attr.Name)
+
+		obj, ok := attr.Receiver.(*ast.Integer)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(1), obj.Value)
+	})
+
+	n.It("allows keywords in attribute names", func() {
+		lex, err := lex.NewLexer(`1.class`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		attr, ok := tree.(*ast.Attribute)
+		require.True(t, ok)
+
+		assert.Equal(t, "class", attr.Name)
+
+		obj, ok := attr.Receiver.(*ast.Integer)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(1), obj.Value)
+	})
+
+	n.It("parses a nested attribute access", func() {
+		lex, err := lex.NewLexer(`a.b.c`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		attr, ok := tree.(*ast.Attribute)
+		require.True(t, ok)
+
+		assert.Equal(t, "c", attr.Name)
+
+		attr2, ok := attr.Receiver.(*ast.Attribute)
+		require.True(t, ok)
+
+		assert.Equal(t, "b", attr2.Name)
+
+		obj, ok := attr2.Receiver.(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", obj.Name)
+	})
+
+	n.It("parses a gnarly attr+call chain", func() {
+		lex, err := lex.NewLexer(`a.b.c().d.e().f`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		attr, ok := tree.(*ast.Attribute)
+		require.True(t, ok)
+
+		assert.Equal(t, "f", attr.Name)
+
+		call, ok := attr.Receiver.(*ast.Call)
+		require.True(t, ok)
+
+		assert.Equal(t, "e", call.MethodName)
+	})
+
+	n.It("parses an attribute access off a call", func() {
+		lex, err := lex.NewLexer(`a.c().b`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		attr, ok := tree.(*ast.Attribute)
+		require.True(t, ok)
+
+		assert.Equal(t, "b", attr.Name)
+
+		obj, ok := attr.Receiver.(*ast.Call)
+		require.True(t, ok)
+
+		assert.Equal(t, "c", obj.MethodName)
+	})
+
+	n.It("parses an attribute assign", func() {
+		lex, err := lex.NewLexer(`a.b = 3`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		attr, ok := tree.(*ast.AttributeAssign)
+		require.True(t, ok)
+
+		assert.Equal(t, "b", attr.Name)
+
+		obj, ok := attr.Receiver.(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", obj.Name)
+
+		val, ok := attr.Value.(*ast.Integer)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(3), val.Value)
+	})
+
+	n.It("parses an attribute assign off a call", func() {
+		lex, err := lex.NewLexer(`a.c().b = 3`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		attr, ok := tree.(*ast.AttributeAssign)
+		require.True(t, ok)
+
+		assert.Equal(t, "b", attr.Name)
+
+		obj, ok := attr.Receiver.(*ast.Call)
+		require.True(t, ok)
+
+		assert.Equal(t, "c", obj.MethodName)
+
+		val, ok := attr.Value.(*ast.Integer)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(3), val.Value)
+	})
+
+	n.Meow()
 }

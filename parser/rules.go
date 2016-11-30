@@ -64,12 +64,39 @@ func (p *Parser) SetupRules() {
 		}),
 	)
 
+	attrName := r.Or(
+		r.F(r.T(lex.Word), func(v RuleValue) RuleValue {
+			return v.(*lex.Value).Value.(string)
+		}),
+		r.F(r.T(lex.Class), func(v RuleValue) RuleValue {
+			return "class"
+		}),
+		r.F(r.T(lex.Import), func(v RuleValue) RuleValue {
+			return "import"
+		}),
+		r.F(r.T(lex.Def), func(v RuleValue) RuleValue {
+			return "def"
+		}),
+		r.F(r.T(lex.Has), func(v RuleValue) RuleValue {
+			return "has"
+		}),
+		r.F(r.T(lex.Is), func(v RuleValue) RuleValue {
+			return "is"
+		}),
+		r.F(r.T(lex.If), func(v RuleValue) RuleValue {
+			return "if"
+		}),
+		r.F(r.T(lex.While), func(v RuleValue) RuleValue {
+			return "while"
+		}),
+	)
+
 	attrAccess := r.Fs(
-		r.Seq(expr, r.T(lex.Dot), r.T(lex.Word)),
+		r.Seq(expr, r.T(lex.Dot), attrName),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Attribute{
 				Receiver: rv[0].(ast.Node),
-				Name:     rv[2].(*lex.Value).Value.(string),
+				Name:     rv[2].(string),
 			}
 		})
 

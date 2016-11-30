@@ -53,6 +53,7 @@ type Method struct {
 
 type MethodDescriptor struct {
 	Name      string
+	Aliases   []string
 	Signature Signature
 	Func      func(env Env, recv Value, args []Value) (Value, error)
 }

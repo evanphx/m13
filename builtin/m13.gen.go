@@ -71,6 +71,10 @@ func I64_add_adapter(env value.Env, recv value.Value, args []value.Value) (value
 
 var method_desc_I64_add = &value.MethodDescriptor{
 	Name: "+",
+	Aliases: []string{
+
+		"add",
+	},
 	Signature: value.Signature{
 		Required: 1,
 		Args: []string{
@@ -99,6 +103,10 @@ func I64_inc_adapter(env value.Env, recv value.Value, args []value.Value) (value
 
 var method_desc_I64_inc = &value.MethodDescriptor{
 	Name: "++",
+	Aliases: []string{
+
+		"inc",
+	},
 	Signature: value.Signature{
 		Required: 0,
 		Args:     []string{},
@@ -128,7 +136,8 @@ func I64_lt_adapter(env value.Env, recv value.Value, args []value.Value) (value.
 }
 
 var method_desc_I64_lt = &value.MethodDescriptor{
-	Name: "<",
+	Name:    "<",
+	Aliases: []string{},
 	Signature: value.Signature{
 		Required: 1,
 		Args: []string{
@@ -229,7 +238,8 @@ func String_add_adapter(env value.Env, recv value.Value, args []value.Value) (va
 }
 
 var method_desc_String_add = &value.MethodDescriptor{
-	Name: "+",
+	Name:    "+",
+	Aliases: []string{},
 	Signature: value.Signature{
 		Required: 1,
 		Args: []string{

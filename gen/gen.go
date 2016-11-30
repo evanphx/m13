@@ -148,6 +148,28 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 		idx := g.findLiteral(n.Name)
 
 		g.seq = append(g.seq, insn.Builder.CallOp(g.sp, g.sp, idx))
+	case *ast.Call:
+		err := g.GenerateScoped(n.Receiver, scope)
+		if err != nil {
+			return err
+		}
+
+		ret := g.sp
+
+		for _, arg := range n.Args {
+			g.sp++
+
+			err = g.GenerateScoped(arg, scope)
+			if err != nil {
+				return err
+			}
+		}
+
+		g.sp = ret
+
+		idx := g.findLiteral(n.MethodName)
+
+		g.seq = append(g.seq, insn.Builder.CallN(g.sp, g.sp, len(n.Args), idx))
 	case *ast.Block:
 		for _, ex := range n.Expressions {
 			err := g.GenerateScoped(ex, scope)

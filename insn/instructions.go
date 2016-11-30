@@ -109,6 +109,18 @@ func (_ BuilderType) CallOp(dest, base, lit int) Instruction {
 	return out
 }
 
+func (_ BuilderType) CallN(dest, base, cnt, lit int) Instruction {
+	var out Instruction
+
+	out |= Instruction(CallN)
+	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(base) << Reg1Shift)
+	out |= (Instruction(lit) << Reg2Shift)
+	out |= (Instruction(cnt) << Rest2Shift)
+
+	return out
+}
+
 func (_ BuilderType) GotoIfFalse(reg int, pos int) Instruction {
 	var out Instruction
 

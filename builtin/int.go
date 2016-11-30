@@ -18,12 +18,12 @@ func (i I64) Class(env value.Env) *value.Class {
 	return env.I64Class()
 }
 
-// m13 name=+
+// m13 name=+ alias=add
 func (i I64) add(j I64) (I64, error) {
 	return i + j, nil
 }
 
-// m13 name=++
+// m13 name=++ alias=inc
 func (i I64) inc() (I64, error) {
 	return i + 1, nil
 }

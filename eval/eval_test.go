@@ -42,7 +42,7 @@ func TestEvaluator(t *testing.T) {
 		ev, err := NewEvaluator()
 		require.NoError(t, err)
 
-		val, err := ev.Eval(`1.class`)
+		val, err := ev.Eval(`3.add(4)`)
 		require.NoError(t, err)
 
 		i, ok := val.(builtin.I64)

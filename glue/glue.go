@@ -98,6 +98,7 @@ type method struct {
 	NumArgs  int
 	RecvType string
 	Args     []*arg
+	Aliases  []string
 }
 
 func (m *method) Parse(text string) {
@@ -111,6 +112,8 @@ func (m *method) Parse(text string) {
 			switch part[:eq] {
 			case "name":
 				m.Name = val
+			case "alias":
+				m.Aliases = strings.Split(val, ",")
 			default:
 				log.Fatalf("Unknown key: %s", part[:eq])
 			}
@@ -184,6 +187,11 @@ const codeTemplate2 = `
 
 		var method_desc_{{.GenName}} = &value.MethodDescriptor {
 			Name: "{{.Name}}",
+			Aliases: []string{
+				{{range .Aliases}}
+					"{{.}}",
+				{{end}}
+			},
 			Signature: value.Signature{
 				Required: {{.NumArgs}},
 				Args: []string {
