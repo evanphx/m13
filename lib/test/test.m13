@@ -1,0 +1,61 @@
+
+def spec(name, body) {
+  s = Spec.new(name)
+
+  body(s)
+
+  s.run
+}
+
+class Expectation {
+  has @object
+
+  def ==(other) {
+    if @object == object {
+      *stdout*.print(".")
+    } else {
+      *stdout*.print("!")
+    }
+  }
+}
+
+class Case {
+  has @description
+  has @body
+
+  def initialize(description, body) {
+    @description = description
+    @body = body
+  }
+
+  def expect(object) {
+    Expectation.new(object)
+  }
+
+  def run() {
+    @body()
+  }
+}
+
+class Spec {
+  has @name
+  has @cases
+
+  def initialize(name) {
+    @name = name
+    @cases = []
+  }
+
+  def it(desc, body) {
+    @cases << Case.new(desc, body)
+  }
+
+  def run() {
+    @cases.each(c => {
+      *stdout*.puts("• " + c.description)
+      c.run
+      *stdout*.puts("")
+    })
+  }
+
+}

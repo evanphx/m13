@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"io/ioutil"
 	"testing"
 
 	"github.com/evanphx/m13/ast"
@@ -434,6 +435,32 @@ func TestParser(t *testing.T) {
 		assert.Equal(t, int64(2), v.Value)
 	})
 
+	n.It("parses a lambda with on it's only line", func() {
+		lex, err := lex.NewLexer("x => {\n  1\n}")
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		n, ok := tree.(*ast.Lambda)
+		require.True(t, ok)
+
+		assert.Equal(t, 1, len(n.Args))
+
+		assert.Equal(t, "x", n.Args[0])
+
+		b, ok := n.Expr.(*ast.Block)
+		require.True(t, ok)
+
+		v, ok := b.Expressions[0].(*ast.Integer)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(1), v.Value)
+	})
+
 	n.It("parses a toplevel expression sequence", func() {
 		lex, err := lex.NewLexer("1\n2")
 		require.NoError(t, err)
@@ -744,25 +771,6 @@ os.stdout().puts("hello m13");`
 		assert.Equal(t, int64(4), op.Right.(*ast.Integer).Value)
 	})
 
-	n.It("parses `3 div 4`", func() {
-		lex, err := lex.NewLexer(`3 div 4`)
-		require.NoError(t, err)
-
-		parser, err := NewParser(lex)
-		require.NoError(t, err)
-
-		tree, err := parser.Parse()
-		require.NoError(t, err)
-
-		op, ok := tree.(*ast.Op)
-		require.True(t, ok)
-
-		assert.Equal(t, "div", op.Name)
-
-		assert.Equal(t, int64(3), op.Left.(*ast.Integer).Value)
-		assert.Equal(t, int64(4), op.Right.(*ast.Integer).Value)
-	})
-
 	n.It("parses `3 + 4 * 2`", func() {
 		lex, err := lex.NewLexer(`3 + 4 * 2`)
 		require.NoError(t, err)
@@ -1002,6 +1010,15 @@ func TestRandomSnippits(t *testing.T) {
 		`a(4)`,
 		`a = x => x + 3`,
 		`a = x => x + 3; a(4)`,
+		`a.^b`,
+		`a.^b()`,
+		`3.^class()`,
+		`3.^class`,
+		`3.^class.name`,
+		`c.expect(3.^class.name)`,
+		`3 == 4`,
+		`a.b == c.d`,
+		`c.expect(3.^class.name) == "builtin.I64"`,
 	}
 
 	for _, s := range snippits {
@@ -1012,8 +1029,10 @@ func TestRandomSnippits(t *testing.T) {
 		parser, err := NewParser(lex)
 		require.NoError(t, err, s)
 
-		_, err = parser.Parse()
+		tree, err := parser.Parse()
 		require.NoError(t, err, s)
+
+		t.Logf("=> %#v", tree)
 	}
 }
 
@@ -1203,5 +1222,103 @@ func TestMethodParses(t *testing.T) {
 		assert.Equal(t, int64(3), val.Value)
 	})
 
+	n.It("parses an up method call", func() {
+		lex, err := lex.NewLexer(`a.^b()`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		n, ok := tree.(*ast.UpCall)
+		require.True(t, ok)
+
+		c, ok := n.Receiver.(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", c.Name)
+
+		assert.Equal(t, "b", n.MethodName)
+	})
+
+	n.It("parses a method call without parens", func() {
+		lex, err := lex.NewLexer(`a.b 3`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		n, ok := tree.(*ast.Call)
+		require.True(t, ok)
+
+		c, ok := n.Receiver.(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", c.Name)
+
+		assert.Equal(t, "b", n.MethodName)
+
+		require.Equal(t, 1, len(n.Args))
+
+		i, ok := n.Args[0].(*ast.Integer)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(3), i.Value)
+	})
+
+	n.It("parses a method call without parens and a lambda", func() {
+		lex, err := lex.NewLexer(`a.b "d", x => { 3 }`)
+		require.NoError(t, err)
+
+		parser, err := NewParser(lex)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		n, ok := tree.(*ast.Call)
+		require.True(t, ok)
+
+		c, ok := n.Receiver.(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", c.Name)
+
+		assert.Equal(t, "b", n.MethodName)
+
+		require.Equal(t, 2, len(n.Args))
+
+		i, ok := n.Args[0].(*ast.String)
+		require.True(t, ok)
+
+		assert.Equal(t, "d", i.Value)
+
+		l, ok := n.Args[1].(*ast.Lambda)
+		require.True(t, ok)
+
+		require.Equal(t, 1, len(l.Args))
+
+		assert.Equal(t, "x", l.Args[0])
+	})
+
 	n.Meow()
+}
+
+func TestBasic(t *testing.T) {
+	data, err := ioutil.ReadFile("../test/basic.m13")
+	require.NoError(t, err)
+
+	lex, err := lex.NewLexer(string(data))
+	require.NoError(t, err)
+
+	parser, err := NewParser(lex)
+	require.NoError(t, err)
+
+	_, err = parser.Parse()
+	require.NoError(t, err, string(data))
 }

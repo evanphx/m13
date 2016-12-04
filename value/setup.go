@@ -29,6 +29,7 @@ type Registry struct {
 	Class     *Class
 	BoolClass *Class
 	I64Class  *Class
+	Mirror    *Class
 }
 
 func NewRegistry() *Registry {

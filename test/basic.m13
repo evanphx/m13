@@ -1,0 +1,7 @@
+import test
+
+test.spec "Basic operations", s => {
+  s.it "can read the class of a number", c => {
+    c.expect(3.^class.name) == "builtin.I64"
+  }
+}

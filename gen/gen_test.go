@@ -138,6 +138,44 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, "+", g.literals[0])
 	})
 
+	n.It("generates bytecode for an upcall", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		tree := &ast.UpCall{
+			MethodName: "class",
+			Receiver:   &ast.Integer{Value: 3},
+		}
+
+		err = g.Generate(tree)
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		require.Equal(t, 3, len(seq))
+
+		i := seq[0]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, int64(3), i.Data())
+
+		i = seq[1]
+
+		assert.Equal(t, insn.GetMirror, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[2]
+
+		assert.Equal(t, insn.CallN, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+		assert.Equal(t, 0, i.R2())
+		assert.Equal(t, int64(0), i.Rest2())
+		assert.Equal(t, "class", g.literals[0])
+	})
+
 	n.It("generates bytecode for an if", func() {
 		g, err := NewGenerator()
 		require.NoError(t, err)

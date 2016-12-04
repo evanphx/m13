@@ -216,6 +216,66 @@ func setup_BigInt(setup value.Setup) {
 
 var _ = value.RegisterSetup(setup_BigInt)
 
+func ObjectMirror_ObjectClass_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+	if len(args) != 0 {
+		return env.ArgumentError(len(args), 0)
+	}
+
+	self := recv.(*ObjectMirror)
+
+	ret, err := self.ObjectClass(
+
+		env,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+var method_desc_ObjectMirror_ObjectClass = &value.MethodDescriptor{
+	Name:    "class",
+	Aliases: []string{},
+	Signature: value.Signature{
+		Required: 0,
+		Args:     []string{},
+	},
+	Func: ObjectMirror_ObjectClass_adapter,
+}
+
+var methods_ObjectMirror = []*value.MethodDescriptor{
+
+	method_desc_ObjectMirror_ObjectClass,
+}
+
+func setup_ObjectMirror(setup value.Setup) {
+	setup.ApplyMethods("builtin.ObjectMirror", methods_ObjectMirror)
+	/*
+		pkg := setup.OpenPackage("builtin")
+
+		methods := make(map[string]*value.Method)
+
+
+			methods["class"] = setup.MakeMethod(&value.MethodConfig{
+				Name: "class",
+				Func: ObjectMirror_ObjectClass_adapter,
+			})
+
+
+		setup.MakeClass(&value.ClassConfig{
+			Package: pkg,
+			Name: "ObjectMirror",
+			Parent: "",
+			Methods: methods,
+			GlobalName: "builtin.ObjectMirror",
+		})
+	*/
+}
+
+var _ = value.RegisterSetup(setup_ObjectMirror)
+
 func String_add_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
 	if len(args) != 1 {
 		return env.ArgumentError(len(args), 1)

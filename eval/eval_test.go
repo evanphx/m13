@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/evanphx/m13/builtin"
+	"github.com/evanphx/m13/value"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vektra/neko"
@@ -49,6 +50,19 @@ func TestEvaluator(t *testing.T) {
 		require.True(t, ok)
 
 		assert.Equal(t, builtin.I64(7), i)
+	})
+
+	n.It("calls an up method", func() {
+		ev, err := NewEvaluator()
+		require.NoError(t, err)
+
+		val, err := ev.Eval(`3.^class`)
+		require.NoError(t, err)
+
+		i, ok := val.(*value.Class)
+		require.True(t, ok)
+
+		assert.Equal(t, "I64", i.Name)
 	})
 
 	n.Meow()

@@ -35,6 +35,7 @@ const (
 	Nil
 	Dot
 	Word
+	Operator
 	OpenParen
 	CloseParen
 	Comma
@@ -55,6 +56,7 @@ const (
 	Inc
 	Dec
 	While
+	UpDot
 )
 
 type Value struct {
@@ -173,7 +175,7 @@ func (l *Lexer) scanOp(r rune) (*Value, error) {
 		buf.WriteRune(r)
 	}
 
-	return &Value{Type: Word, Value: buf.String()}, nil
+	return &Value{Type: Operator, Value: buf.String()}, nil
 }
 
 func (l *Lexer) scanDigit(width int) (int64, error) {
@@ -406,6 +408,16 @@ func (l *Lexer) Next() (*Value, error) {
 			return &Value{Type: Atom, Value: buf.String()}, nil
 		}
 	case '.':
+		r, _, err := l.r.ReadRune()
+		if err != nil {
+			return &Value{Type: Dot}, nil
+		}
+
+		if r == '^' {
+			return &Value{Type: UpDot}, nil
+		}
+
+		l.r.UnreadRune()
 		return &Value{Type: Dot}, nil
 	case '(':
 		return &Value{Type: OpenParen}, nil
@@ -421,18 +433,6 @@ func (l *Lexer) Next() (*Value, error) {
 		return &Value{Type: Semi}, nil
 	case '\n':
 		return &Value{Type: Newline}, nil
-	case '=':
-		r, _, err := l.r.ReadRune()
-		if err != nil {
-			return &Value{Type: Equal}, nil
-		}
-
-		if r == '>' {
-			return &Value{Type: Into}, nil
-		}
-
-		l.r.UnreadRune()
-		return &Value{Type: Equal}, nil
 	case '@':
 		word, err := l.scanNewWord()
 		if err != nil {
@@ -442,33 +442,27 @@ func (l *Lexer) Next() (*Value, error) {
 		return &Value{Type: IVar, Value: word}, nil
 	case '#':
 		return l.scanComment()
-	case '+':
-		nr, _, err := l.r.ReadRune()
-		if err != nil {
-			return &Value{Type: Word, Value: "+"}, nil
-		}
-
-		if nr == '+' {
-			return &Value{Type: Inc}, nil
-		}
-
-		l.r.UnreadRune()
-		return l.scanOp(r)
-	case '-':
-		r, _, err := l.r.ReadRune()
-		if err != nil {
-			return &Value{Type: Word, Value: "-"}, nil
-		}
-
-		if r == '-' {
-			return &Value{Type: Dec}, nil
-		}
-
-		l.r.UnreadRune()
-		return l.scanOp(r)
-	case '<', '>', '*':
-		return l.scanOp(r)
 	default:
+		if unicode.IsPunct(r) || unicode.IsSymbol(r) {
+			op, err := l.scanOp(r)
+			if err != nil {
+				return op, err
+			}
+
+			switch op.Value {
+			case "=":
+				return &Value{Type: Equal}, nil
+			case "=>":
+				return &Value{Type: Into}, nil
+			case "++":
+				return &Value{Type: Inc}, nil
+			case "--":
+				return &Value{Type: Dec}, nil
+			default:
+				return op, nil
+			}
+		}
+
 		return l.scanBare(r)
 	}
 

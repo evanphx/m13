@@ -45,6 +45,12 @@ type Call struct {
 	Args       []Node
 }
 
+type UpCall struct {
+	Receiver   Node
+	MethodName string
+	Args       []Node
+}
+
 type Invoke struct {
 	Name  string
 	Ref   bool

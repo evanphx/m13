@@ -17,6 +17,7 @@ const (
 	Invoke       Op = 10
 	ReadRef      Op = 11
 	StoreRef     Op = 12
+	GetMirror    Op = 13
 )
 
 type Instruction int64
@@ -201,6 +202,16 @@ func (_ BuilderType) StoreRef(reg, ref int) Instruction {
 	var out Instruction
 
 	out |= Instruction(StoreRef)
+	out |= (Instruction(reg) << Reg0Shift)
+	out |= (Instruction(ref) << Reg1Shift)
+
+	return out
+}
+
+func (_ BuilderType) GetMirror(reg, ref int) Instruction {
+	var out Instruction
+
+	out |= Instruction(GetMirror)
 	out |= (Instruction(reg) << Reg0Shift)
 	out |= (Instruction(ref) << Reg1Shift)
 

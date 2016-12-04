@@ -130,6 +130,8 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
 			reg[i.R0()] = ctx.Refs[i.Data()].Value
 		case insn.StoreRef:
 			ctx.Refs[i.Data()].Value = reg[i.R0()]
+		case insn.GetMirror:
+			reg[i.R0()] = vm.getMirror(ctx, reg[i.R0()])
 		default:
 			panic(fmt.Sprintf("unknown op: %s", i.Op()))
 		}
@@ -162,4 +164,11 @@ func (vm *VM) createLambda(ctx ExecuteContext, args int, refs []*value.Ref, code
 		panic(fmt.Sprintf("Missing code: %d", code))
 	}
 	return value.CreateLambda(ctx.Code.SubCode[code], refs, args)
+}
+
+func (vm *VM) getMirror(ctx ExecuteContext, obj value.Value) value.Value {
+	mir := &builtin.ObjectMirror{Val: obj}
+	mir.SetClass(vm.registry.Mirror)
+
+	return mir
 }

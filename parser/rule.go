@@ -7,6 +7,8 @@ import (
 	"github.com/evanphx/m13/lex"
 )
 
+const debugApply = false
+
 type Lexer interface {
 	Next() *lex.Value
 	Mark() int
@@ -183,6 +185,11 @@ func (rr *RepeatRule) Name() string {
 
 type RefRule struct {
 	Rule
+	name string
+}
+
+func (r *RefRule) Name() string {
+	return r.name
 }
 
 type rrLR struct {
@@ -197,6 +204,8 @@ type rrMemo struct {
 
 type RecursiveRule struct {
 	Rules []Rule
+	p     *Parser
+	name  string
 	memo  map[int]*rrMemo
 }
 
@@ -257,7 +266,7 @@ func (r *RecursiveRule) eval(n Lexer) (RuleValue, bool) {
 	p := n.Mark()
 
 	for _, rule := range r.Rules {
-		rv, ok := rule.Match(n)
+		rv, ok := r.p.Apply(rule, n)
 		if ok {
 			return rv, ok
 		}
@@ -266,6 +275,10 @@ func (r *RecursiveRule) eval(n Lexer) (RuleValue, bool) {
 	}
 
 	return nil, false
+}
+
+func (r *RecursiveRule) Name() string {
+	return r.name
 }
 
 type NamedRule struct {
@@ -319,16 +332,40 @@ func (t *TimesRules) Match(n Lexer) (RuleValue, bool) {
 	return values, true
 }
 
+func (t *TimesRules) Name() string {
+	if t.Min == 0 {
+		if t.Max == 1 {
+			return descRule(t.Rule) + "?"
+		}
+	}
+
+	return descRule(t.Rule) + fmt.Sprintf("{%d..%d}", t.Min, t.Max)
+}
+
 func (p *Parser) Apply(r Rule, n Lexer) (RuleValue, bool) {
-	return r.Match(n)
+	if !debugApply {
+		return r.Match(n)
+	}
+
+	fmt.Printf("%02d @ %d => %s\n", p.applyDepth, n.Mark(), descRule(r))
+	p.applyDepth++
+	rv, ok := r.Match(n)
+	p.applyDepth--
+	if ok {
+		fmt.Printf("%02d ! %d => %s\n", p.applyDepth, n.Mark(), descRule(r))
+	}
+
+	return rv, ok
 }
 
 type Rules struct {
 	Parser *Parser
 }
 
-func (r *Rules) Rec() *RecursiveRule {
+func (r *Rules) Rec(name string) *RecursiveRule {
 	return &RecursiveRule{
+		p:    r.Parser,
+		name: name,
 		memo: make(map[int]*rrMemo),
 	}
 }
@@ -383,8 +420,8 @@ func (r *Rules) Nth(n int) func(RuleValue) RuleValue {
 	}
 }
 
-func (r *Rules) Ref() *RefRule {
-	return &RefRule{}
+func (r *Rules) Ref(name string) *RefRule {
+	return &RefRule{name: name}
 }
 
 func descRule(r Rule) string {

@@ -10,6 +10,9 @@ type Parser struct {
 	lex *lex.Lexer
 
 	root Rule
+	expr Rule
+
+	applyDepth int
 }
 
 func NewParser(lex *lex.Lexer) (*Parser, error) {
@@ -54,6 +57,17 @@ func (p *Parser) Parse() (ast.Node, error) {
 	ml := &markingLexer{lex: p.lex}
 
 	v, ok := p.root.Match(ml)
+	if !ok {
+		return nil, ErrParse
+	}
+
+	return v.(ast.Node), nil
+}
+
+func (p *Parser) ParseExpr() (ast.Node, error) {
+	ml := &markingLexer{lex: p.lex}
+
+	v, ok := p.expr.Match(ml)
 	if !ok {
 		return nil, ErrParse
 	}

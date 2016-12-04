@@ -99,6 +99,8 @@ type method struct {
 	RecvType string
 	Args     []*arg
 	Aliases  []string
+
+	IncludeEnv bool
 }
 
 func (m *method) Parse(text string) {
@@ -173,6 +175,9 @@ const codeTemplate2 = `
 			{{end}}
 
 			ret, err := self.{{.GoName}}(
+				{{if .IncludeEnv}}
+				env,
+				{{end}}
 				{{range $i, $e := .Args}}
 					a{{$i}},
 				{{end}}
@@ -305,9 +310,17 @@ func genFile(f *ast.File, out io.Writer) {
 
 			name := fd.Name.Name
 
-			var args []*arg
+			var (
+				args       []*arg
+				includeEnv bool
+			)
 
 			for _, field := range fd.Type.Params.List {
+				if field.Names[0].Name == "env" {
+					includeEnv = true
+					continue
+				}
+
 				for _, name := range field.Names {
 					if id, ok := field.Type.(*ast.Ident); ok {
 						args = append(args, &arg{Name: name.Name, GoType: id.Name})
@@ -323,12 +336,13 @@ func genFile(f *ast.File, out io.Writer) {
 			}
 
 			meth := &method{
-				GoName:   name,
-				Name:     name,
-				GenName:  fmt.Sprintf("%s_%s", recv, name),
-				NumArgs:  len(args),
-				RecvType: recvType,
-				Args:     args,
+				GoName:     name,
+				Name:       name,
+				GenName:    fmt.Sprintf("%s_%s", recv, name),
+				NumArgs:    len(args),
+				RecvType:   recvType,
+				Args:       args,
+				IncludeEnv: includeEnv,
 			}
 
 			if strings.HasPrefix(fd.Doc.Text(), "m13 ") {

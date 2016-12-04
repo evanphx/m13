@@ -82,6 +82,7 @@ func TestLexer(t *testing.T) {
 		{"false", False},
 		{"nil", Nil},
 		{".", Dot},
+		{".^", UpDot},
 		{"(", OpenParen},
 		{")", CloseParen},
 		{",", Comma},
@@ -109,7 +110,7 @@ func TestLexer(t *testing.T) {
 		x, err := lex.Next()
 		require.NoError(t, err, "parsing: %s", st.i)
 
-		assert.Equal(t, st.o, x.Type)
+		assert.Equal(t, st.o, x.Type, x.Type.String())
 	}
 
 	var wordTests = []string{
@@ -150,6 +151,7 @@ func TestLexer(t *testing.T) {
 		">",
 		"<",
 		"<+>",
+		"==",
 	}
 
 	for _, v := range opTests {
@@ -159,7 +161,7 @@ func TestLexer(t *testing.T) {
 		x, err := lex.Next()
 		require.NoError(t, err)
 
-		assert.Equal(t, Word, x.Type)
+		require.Equal(t, Operator, x.Type, x.Type.String())
 		assert.Equal(t, v, x.Value.(string))
 	}
 

@@ -65,14 +65,6 @@ func (r *Registry) Boot() error {
 	r.Object = obj
 	r.Class = cls
 
-	obj.AddMethod(&MethodDescriptor{
-		Name: "class",
-		Signature: Signature{
-			Required: 0,
-		},
-		Func: object_class,
-	})
-
 	r.BoolClass = r.NewClass(pkg, "Bool", obj)
 
 	intClass := r.NewClass(pkg, "Integer", obj)
@@ -83,9 +75,7 @@ func (r *Registry) Boot() error {
 
 	r.NewClass(pkg, "String", obj)
 
-	return nil
-}
+	r.Mirror = r.NewClass(pkg, "ObjectMirror", obj)
 
-func object_class(env Env, recv Value, args []Value) (Value, error) {
-	return TrueClass(env, recv), nil
+	return nil
 }
