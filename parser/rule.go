@@ -20,6 +20,32 @@ type Rule interface {
 	Match(Lexer) (RuleValue, bool)
 }
 
+type memoValue struct {
+	val RuleValue
+	ok  bool
+	pos int
+}
+
+type memoRecorder struct {
+	m map[int]memoValue
+}
+
+func (m *memoRecorder) retrieve(n Lexer) (memoValue, bool) {
+	if v, ok := m.m[n.Mark()]; ok {
+		return v, true
+	}
+
+	return memoValue{}, false
+}
+
+func (m *memoRecorder) save(p int, n Lexer, v RuleValue, ok bool) {
+	if m.m == nil {
+		m.m = make(map[int]memoValue)
+	}
+
+	m.m[p] = memoValue{v, ok, n.Mark()}
+}
+
 type RuleValue interface{}
 
 type CodeRule struct {
@@ -325,22 +351,29 @@ func (s *ScanRule) Name() string {
 }
 
 type LiteralRule struct {
+	memoRecorder
 	literal string
 }
 
 func (s *LiteralRule) Match(n Lexer) (RuleValue, bool) {
 	pos := n.Mark()
 
+	if mv, ok := s.retrieve(n); ok {
+		n.Rewind(mv.pos)
+		return mv.val, mv.ok
+	}
+
 	rs := n.RuneScanner()
 
 	for _, need := range s.literal {
 		r, _, err := rs.ReadRune()
-		fmt.Printf("lit comp: %s <> %s\n", string(need), string(r))
 		if err != nil || need != r {
 			n.Rewind(pos)
 			return nil, false
 		}
 	}
+
+	s.save(pos, n, s.literal, true)
 
 	return s.literal, true
 }
@@ -352,6 +385,8 @@ func (s *LiteralRule) Name() string {
 type RegexpRule struct {
 	src string
 	pat *regexp.Regexp
+
+	m memoRecorder
 }
 
 type saveReader struct {
@@ -371,11 +406,15 @@ func (sr *saveReader) ReadRune() (rune, int, error) {
 func (r *RegexpRule) Match(n Lexer) (RuleValue, bool) {
 	pos := n.Mark()
 
+	if mv, ok := r.m.retrieve(n); ok {
+		n.Rewind(mv.pos)
+		return mv.val, mv.ok
+	}
+
 	sr := &saveReader{sub: n.RuneScanner()}
 
 	res := r.pat.FindReaderSubmatchIndex(sr)
 	if res == nil {
-		fmt.Printf("no match: %d\n", pos)
 		n.Rewind(pos)
 		return nil, false
 	}
@@ -385,14 +424,14 @@ func (r *RegexpRule) Match(n Lexer) (RuleValue, bool) {
 		res[1] = res[3]
 	}
 
-	if len(res) < 2 {
-		panic(fmt.Sprintf("res: %#v", res))
-	}
+	cursor := pos + res[1]
+	capture := string(sr.buf.Bytes()[res[0]:res[1]])
 
-	fmt.Printf("res: %#v", res)
-	n.Rewind(pos + res[1])
+	n.Rewind(cursor)
 
-	return string(sr.buf.Bytes()[res[0]:res[1]]), true
+	r.m.save(pos, n, capture, true)
+
+	return capture, true
 }
 
 func (r *RegexpRule) Name() string {
@@ -531,11 +570,11 @@ func (r *Rules) Scan(name string, f func(io.RuneScanner) (RuleValue, bool)) *Sca
 }
 
 func (r *Rules) S(lit string) *LiteralRule {
-	return &LiteralRule{lit}
+	return &LiteralRule{literal: lit}
 }
 
 func (r *Rules) Re(pat string) *RegexpRule {
-	return &RegexpRule{pat, regexp.MustCompile(`\A` + pat)}
+	return &RegexpRule{src: pat, pat: regexp.MustCompile(`\A` + pat)}
 }
 
 func (r *Rules) Not(x Rule) *NotRule {

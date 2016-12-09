@@ -2,7 +2,6 @@ package parser
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"strconv"
 	"unicode"
@@ -414,7 +413,6 @@ func (p *Parser) SetupRules() {
 	braceBody := r.Fs(
 		r.Seq(sym("{"), stmtList, skip, sym("}")),
 		func(rv []RuleValue) RuleValue {
-			fmt.Printf("%#v\n", rv[1])
 			return &ast.Block{
 				Expressions: convert(rv[1].([]RuleValue)),
 			}

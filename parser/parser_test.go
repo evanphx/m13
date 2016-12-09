@@ -1214,7 +1214,7 @@ func TestMethodParses(t *testing.T) {
 		assert.Equal(t, int64(3), i.Value)
 	})
 
-	n.Only("parses a method call without parens and a lambda", func() {
+	n.It("parses a method call without parens and a lambda", func() {
 		src := `a.b "d", x => { 3 }`
 
 		parser, err := NewParser(src)
