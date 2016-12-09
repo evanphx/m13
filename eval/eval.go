@@ -2,7 +2,6 @@ package eval
 
 import (
 	"github.com/evanphx/m13/gen"
-	"github.com/evanphx/m13/lex"
 	"github.com/evanphx/m13/parser"
 	"github.com/evanphx/m13/value"
 	"github.com/evanphx/m13/vm"
@@ -16,12 +15,7 @@ func NewEvaluator() (*Evaluator, error) {
 }
 
 func (e *Evaluator) Eval(code string) (value.Value, error) {
-	lex, err := lex.NewLexer(code)
-	if err != nil {
-		return nil, err
-	}
-
-	parser, err := parser.NewParser(lex)
+	parser, err := parser.NewParser(code)
 	if err != nil {
 		return nil, err
 	}

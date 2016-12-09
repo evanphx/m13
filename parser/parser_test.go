@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/evanphx/m13/ast"
-	"github.com/evanphx/m13/lex"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vektra/neko"
@@ -16,11 +15,7 @@ func TestParser(t *testing.T) {
 	n := neko.Start(t)
 
 	n.It("parses an Integer", func() {
-		lex, err := lex.NewLexer("10")
-		require.NoError(t, err)
-
-		parser, err := NewParser(lex)
-		require.NoError(t, err)
+		parser, err := NewParser("10")
 
 		tree, err := parser.Parse()
 		require.NoError(t, err)
@@ -32,10 +27,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a String", func() {
-		lex, err := lex.NewLexer(`"hello"`)
-		require.NoError(t, err)
+		src := `"hello"`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -48,10 +42,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses an Atom", func() {
-		lex, err := lex.NewLexer(`:foo`)
-		require.NoError(t, err)
+		src := `:foo`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -64,10 +57,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a True", func() {
-		lex, err := lex.NewLexer(`true`)
-		require.NoError(t, err)
+		src := `true`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -78,10 +70,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a False", func() {
-		lex, err := lex.NewLexer(`false`)
-		require.NoError(t, err)
+		src := `false`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -92,10 +83,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a Nil", func() {
-		lex, err := lex.NewLexer(`nil`)
-		require.NoError(t, err)
+		src := `nil`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -106,10 +96,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a variable", func() {
-		lex, err := lex.NewLexer(`a`)
-		require.NoError(t, err)
+		src := `a`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -122,10 +111,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a method call", func() {
-		lex, err := lex.NewLexer(`a.b()`)
-		require.NoError(t, err)
+		src := `a.b()`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -143,10 +131,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a method call with an arg", func() {
-		lex, err := lex.NewLexer(`a.b(c)`)
-		require.NoError(t, err)
+		src := `a.b(c)`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -171,10 +158,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a method call with args", func() {
-		lex, err := lex.NewLexer(`a.b(c,d,e,f)`)
-		require.NoError(t, err)
+		src := `a.b(c,d,e,f)`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -214,10 +200,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a chained method call", func() {
-		lex, err := lex.NewLexer(`a.b().c()`)
-		require.NoError(t, err)
+		src := `a.b().c()`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -235,10 +220,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a chained method call with args", func() {
-		lex, err := lex.NewLexer(`a.b().c(d,e)`)
-		require.NoError(t, err)
+		src := `a.b().c(d,e)`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -258,10 +242,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parser a local variable assignment", func() {
-		lex, err := lex.NewLexer("a=1")
-		require.NoError(t, err)
+		src := "a=1"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -279,10 +262,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a simple lambda", func() {
-		lex, err := lex.NewLexer("=>1")
-		require.NoError(t, err)
+		src := "=>1"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -300,10 +282,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a lambda with arg", func() {
-		lex, err := lex.NewLexer("x=>1")
-		require.NoError(t, err)
+		src := "x=>1"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -323,10 +304,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a lambda with args", func() {
-		lex, err := lex.NewLexer("(x, y) => 1")
-		require.NoError(t, err)
+		src := "(x, y) => 1"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -348,10 +328,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a lambda with a brace body", func() {
-		lex, err := lex.NewLexer("x => { 1 }")
-		require.NoError(t, err)
+		src := "x => { 1 }"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -376,10 +355,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a lambda with multiple expressions", func() {
-		lex, err := lex.NewLexer("x => { 1; 2 }")
-		require.NoError(t, err)
+		src := "x => { 1; 2 }"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -411,10 +389,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a lambda with multiple expressions using a newline seperator", func() {
-		lex, err := lex.NewLexer("x => { 1\n 2 }")
-		require.NoError(t, err)
+		src := "x => { 1\n 2 }"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -442,10 +419,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a lambda with on it's only line", func() {
-		lex, err := lex.NewLexer("x => {\n  1\n}")
-		require.NoError(t, err)
+		src := "x => {\n  1\n}"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -468,10 +444,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a toplevel expression sequence", func() {
-		lex, err := lex.NewLexer("1\n2")
-		require.NoError(t, err)
+		src := "1\n2"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -492,10 +467,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("allows blank lines between statements", func() {
-		lex, err := lex.NewLexer("1\n\n2")
-		require.NoError(t, err)
+		src := "1\n\n2"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -516,10 +490,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses an import", func() {
-		lex, err := lex.NewLexer("import a.b.c")
-		require.NoError(t, err)
+		src := "import a.b.c"
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -532,12 +505,9 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a test program", func() {
-		prog := `import os; os.stdout().puts("hello m13")`
+		src := `import os; os.stdout().puts("hello m13")`
 
-		lex, err := lex.NewLexer(prog)
-		require.NoError(t, err)
-
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		_, err = parser.Parse()
@@ -545,15 +515,12 @@ func TestParser(t *testing.T) {
 	})
 
 	n.It("parses a test program with spaces", func() {
-		prog := `
+		src := `
 		import os;
 
 os.stdout().puts("hello m13");`
 
-		lex, err := lex.NewLexer(prog)
-		require.NoError(t, err)
-
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		_, err = parser.Parse()
@@ -561,10 +528,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses a method definition with no args", func() {
-		lex, err := lex.NewLexer(`def foo { 1 }`)
-		require.NoError(t, err)
+		src := `def foo { 1 }`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -584,10 +550,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses a method definition with 2 args", func() {
-		lex, err := lex.NewLexer(`def foo(a,b) { 1 }`)
-		require.NoError(t, err)
+		src := `def foo(a,b) { 1 }`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -607,10 +572,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses a method definition with 1 arg", func() {
-		lex, err := lex.NewLexer(`def foo(a) { 1 }`)
-		require.NoError(t, err)
+		src := `def foo(a) { 1 }`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -630,10 +594,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parser a class definition", func() {
-		lex, err := lex.NewLexer(`class Blah { 1 }`)
-		require.NoError(t, err)
+		src := `class Blah { 1 }`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -651,10 +614,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses a comment", func() {
-		lex, err := lex.NewLexer(`# hello, newman`)
-		require.NoError(t, err)
+		src := `# hello, newman`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -667,10 +629,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parser an ivar", func() {
-		lex, err := lex.NewLexer(`@age`)
-		require.NoError(t, err)
+		src := `@age`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -683,10 +644,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parser a class definition with ivar decls", func() {
-		lex, err := lex.NewLexer(`class Blah { has @age }`)
-		require.NoError(t, err)
+		src := `class Blah { has @age }`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -707,10 +667,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parser a class definition with ivar decls and trait", func() {
-		lex, err := lex.NewLexer(`class Blah { has @age is rw }`)
-		require.NoError(t, err)
+		src := `class Blah { has @age is rw }`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -733,10 +692,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parser a class definition with ivar decls and traits", func() {
-		lex, err := lex.NewLexer(`class Blah { has @age is rw is locked}`)
-		require.NoError(t, err)
+		src := `class Blah { has @age is rw is locked}`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -759,10 +717,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses `3 + 4`", func() {
-		lex, err := lex.NewLexer(`3 + 4`)
-		require.NoError(t, err)
+		src := `3 + 4`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -778,10 +735,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses `3 + 4 * 2`", func() {
-		lex, err := lex.NewLexer(`3 + 4 * 2`)
-		require.NoError(t, err)
+		src := `3 + 4 * 2`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -804,10 +760,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses `3 * 4 + 2`", func() {
-		lex, err := lex.NewLexer(`3 * 4 + 2`)
-		require.NoError(t, err)
+		src := `3 * 4 + 2`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -830,10 +785,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses `3 * 4 + 2 * 5`", func() {
-		lex, err := lex.NewLexer(`3 * 4 + 2 * 5`)
-		require.NoError(t, err)
+		src := `3 * 4 + 2 * 5`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -862,10 +816,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses `3 ** 4 + 2 ** 5`", func() {
-		lex, err := lex.NewLexer(`3 ** 4 + 2 ** 5`)
-		require.NoError(t, err)
+		src := `3 ** 4 + 2 ** 5`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -894,10 +847,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses an if", func() {
-		lex, err := lex.NewLexer(`if a { b }`)
-		require.NoError(t, err)
+		src := `if a { b }`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -921,10 +873,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses a while", func() {
-		lex, err := lex.NewLexer(`while a { b }`)
-		require.NoError(t, err)
+		src := `while a { b }`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -948,10 +899,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses a++", func() {
-		lex, err := lex.NewLexer(`a++`)
-		require.NoError(t, err)
+		src := `a++`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -967,10 +917,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses a--", func() {
-		lex, err := lex.NewLexer(`a--`)
-		require.NoError(t, err)
+		src := `a--`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -986,10 +935,9 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parses a function invoke", func() {
-		lex, err := lex.NewLexer(`a(1)`)
-		require.NoError(t, err)
+		src := `a(1)`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1030,10 +978,8 @@ func TestRandomSnippits(t *testing.T) {
 
 	for _, s := range snippits {
 		t.Logf("parsing: %s", s)
-		lex, err := lex.NewLexer(s)
-		require.NoError(t, err, s)
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(s)
 		require.NoError(t, err, s)
 
 		tree, err := parser.Parse()
@@ -1047,10 +993,9 @@ func TestMethodParses(t *testing.T) {
 	n := neko.Start(t)
 
 	n.It("parses an attribute access", func() {
-		lex, err := lex.NewLexer(`a.b`)
-		require.NoError(t, err)
+		src := `a.b`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1068,10 +1013,9 @@ func TestMethodParses(t *testing.T) {
 	})
 
 	n.It("parses an attribute access off a number", func() {
-		lex, err := lex.NewLexer(`1.b`)
-		require.NoError(t, err)
+		src := `1.b`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1089,10 +1033,9 @@ func TestMethodParses(t *testing.T) {
 	})
 
 	n.It("allows keywords in attribute names", func() {
-		lex, err := lex.NewLexer(`1.class`)
-		require.NoError(t, err)
+		src := `1.class`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1110,10 +1053,9 @@ func TestMethodParses(t *testing.T) {
 	})
 
 	n.It("parses a nested attribute access", func() {
-		lex, err := lex.NewLexer(`a.b.c`)
-		require.NoError(t, err)
+		src := `a.b.c`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1136,10 +1078,9 @@ func TestMethodParses(t *testing.T) {
 	})
 
 	n.It("parses a gnarly attr+call chain", func() {
-		lex, err := lex.NewLexer(`a.b.c().d.e().f`)
-		require.NoError(t, err)
+		src := `a.b.c().d.e().f`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1157,10 +1098,9 @@ func TestMethodParses(t *testing.T) {
 	})
 
 	n.It("parses an attribute access off a call", func() {
-		lex, err := lex.NewLexer(`a.c().b`)
-		require.NoError(t, err)
+		src := `a.c().b`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1178,10 +1118,9 @@ func TestMethodParses(t *testing.T) {
 	})
 
 	n.It("parses an attribute assign", func() {
-		lex, err := lex.NewLexer(`a.b = 3`)
-		require.NoError(t, err)
+		src := `a.b = 3`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1204,10 +1143,9 @@ func TestMethodParses(t *testing.T) {
 	})
 
 	n.It("parses an attribute assign off a call", func() {
-		lex, err := lex.NewLexer(`a.c().b = 3`)
-		require.NoError(t, err)
+		src := `a.c().b = 3`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1230,10 +1168,9 @@ func TestMethodParses(t *testing.T) {
 	})
 
 	n.It("parses an up method call", func() {
-		lex, err := lex.NewLexer(`a.^b()`)
-		require.NoError(t, err)
+		src := `a.^b()`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1251,10 +1188,9 @@ func TestMethodParses(t *testing.T) {
 	})
 
 	n.It("parses a method call without parens", func() {
-		lex, err := lex.NewLexer(`a.b 3`)
-		require.NoError(t, err)
+		src := `a.b 3`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1279,10 +1215,9 @@ func TestMethodParses(t *testing.T) {
 	})
 
 	n.Only("parses a method call without parens and a lambda", func() {
-		lex, err := lex.NewLexer(`a.b "d", x => { 3 }`)
-		require.NoError(t, err)
+		src := `a.b "d", x => { 3 }`
 
-		parser, err := NewParser(lex)
+		parser, err := NewParser(src)
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
@@ -1322,10 +1257,7 @@ func TestBasic(t *testing.T) {
 	data, err := ioutil.ReadFile("../test/basic.m13")
 	require.NoError(t, err)
 
-	lex, err := lex.NewLexer(string(data))
-	require.NoError(t, err)
-
-	parser, err := NewParser(lex)
+	parser, err := NewParser(string(data))
 	require.NoError(t, err)
 
 	_, err = parser.Parse()

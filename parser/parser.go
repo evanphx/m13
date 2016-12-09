@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/evanphx/m13/ast"
-	"github.com/evanphx/m13/lex"
 	"github.com/pkg/errors"
 )
 
@@ -18,8 +17,8 @@ type Parser struct {
 	applyDepth int
 }
 
-func NewParser(lex *lex.Lexer) (*Parser, error) {
-	p := &Parser{source: lex.Source}
+func NewParser(str string) (*Parser, error) {
+	p := &Parser{source: str}
 
 	p.SetupRules()
 
@@ -43,7 +42,7 @@ func (s *NodeStack) Pop() ast.Node {
 }
 
 func (p *Parser) Parse() (ast.Node, error) {
-	ml := &markingLexer{r: strings.NewReader(p.source)}
+	ml := &markingReader{r: strings.NewReader(p.source)}
 
 	v, ok := p.root.Match(ml)
 	if !ok {
@@ -72,7 +71,7 @@ func (p *Parser) Parse() (ast.Node, error) {
 }
 
 func (p *Parser) ParseExpr() (ast.Node, error) {
-	ml := &markingLexer{r: strings.NewReader(p.source)}
+	ml := &markingReader{r: strings.NewReader(p.source)}
 
 	v, ok := p.expr.Match(ml)
 	if !ok {
