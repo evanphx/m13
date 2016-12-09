@@ -1,18 +1,19 @@
 package parser
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"regexp"
 	"strings"
-
-	"github.com/evanphx/m13/lex"
 )
 
 const debugApply = false
 
 type Lexer interface {
-	Next() *lex.Value
 	Mark() int
 	Rewind(int)
+	RuneScanner() io.RuneScanner
 }
 
 type Rule interface {
@@ -42,38 +43,6 @@ func (cr *CodeRule) Name() string {
 	}
 
 	return descRule(cr.Rule)
-}
-
-type LexRule struct {
-	p    *Parser
-	Type lex.Type
-	F    func(*lex.Value) RuleValue
-}
-
-func (lr *LexRule) Match(n Lexer) (RuleValue, bool) {
-	v := n.Next()
-	if v == nil {
-		return nil, false
-	}
-
-	if v.Type != lr.Type {
-		// lr.p.addAttempt(n.Mark(), lr.Type, v)
-		return nil, false
-	}
-
-	if lr.F != nil {
-		return lr.F(v), true
-	}
-
-	return v, true
-}
-
-func (lr *LexRule) GoString() string {
-	return fmt.Sprintf("&parser.LexRule{Type:%s}", lr.Type)
-}
-
-func (lr *LexRule) Name() string {
-	return fmt.Sprintf("match(%s)", lr.Type)
 }
 
 type AndRule struct {
@@ -342,6 +311,147 @@ func (t *TimesRules) Name() string {
 	return descRule(t.Rule) + fmt.Sprintf("{%d..%d}", t.Min, t.Max)
 }
 
+type ScanRule struct {
+	name string
+	f    func(rs io.RuneScanner) (RuleValue, bool)
+}
+
+func (s *ScanRule) Match(n Lexer) (RuleValue, bool) {
+	return s.f(n.RuneScanner())
+}
+
+func (s *ScanRule) Name() string {
+	return s.name
+}
+
+type LiteralRule struct {
+	literal string
+}
+
+func (s *LiteralRule) Match(n Lexer) (RuleValue, bool) {
+	pos := n.Mark()
+
+	rs := n.RuneScanner()
+
+	for _, need := range s.literal {
+		r, _, err := rs.ReadRune()
+		fmt.Printf("lit comp: %s <> %s\n", string(need), string(r))
+		if err != nil || need != r {
+			n.Rewind(pos)
+			return nil, false
+		}
+	}
+
+	return s.literal, true
+}
+
+func (s *LiteralRule) Name() string {
+	return fmt.Sprintf("%#v", s.literal)
+}
+
+type RegexpRule struct {
+	src string
+	pat *regexp.Regexp
+}
+
+type saveReader struct {
+	sub io.RuneReader
+	buf bytes.Buffer
+}
+
+func (sr *saveReader) ReadRune() (rune, int, error) {
+	r, i, err := sr.sub.ReadRune()
+	if err == nil {
+		sr.buf.WriteRune(r)
+	}
+
+	return r, i, err
+}
+
+func (r *RegexpRule) Match(n Lexer) (RuleValue, bool) {
+	pos := n.Mark()
+
+	sr := &saveReader{sub: n.RuneScanner()}
+
+	res := r.pat.FindReaderSubmatchIndex(sr)
+	if res == nil {
+		fmt.Printf("no match: %d\n", pos)
+		n.Rewind(pos)
+		return nil, false
+	}
+
+	if len(res) == 4 {
+		res[0] = res[2]
+		res[1] = res[3]
+	}
+
+	if len(res) < 2 {
+		panic(fmt.Sprintf("res: %#v", res))
+	}
+
+	fmt.Printf("res: %#v", res)
+	n.Rewind(pos + res[1])
+
+	return string(sr.buf.Bytes()[res[0]:res[1]]), true
+}
+
+func (r *RegexpRule) Name() string {
+	return "/" + r.src + "/"
+}
+
+type NotRule struct {
+	p *Parser
+	r Rule
+}
+
+func (r *NotRule) Match(n Lexer) (RuleValue, bool) {
+	defer n.Rewind(n.Mark())
+
+	_, ok := r.p.Apply(r.r, n)
+	return nil, !ok
+}
+
+func (r *NotRule) Name() string {
+	return "!" + descRule(r.r)
+}
+
+type NoneRule struct{}
+
+func (r *NoneRule) Match(n Lexer) (RuleValue, bool) {
+	rs := n.RuneScanner()
+
+	_, _, err := rs.ReadRune()
+	if err == nil {
+		rs.UnreadRune()
+		return nil, false
+	}
+
+	return nil, true
+}
+
+func (r *NoneRule) Name() string {
+	return "$"
+}
+
+type CheckRule struct {
+	p *Parser
+	r Rule
+	f func(RuleValue) (RuleValue, bool)
+}
+
+func (r *CheckRule) Match(n Lexer) (RuleValue, bool) {
+	v, ok := r.p.Apply(r.r, n)
+	if ok {
+		return r.f(v)
+	}
+
+	return nil, false
+}
+
+func (r *CheckRule) Name() string {
+	return "check(" + descRule(r.r) + ")"
+}
+
 func (p *Parser) Apply(r Rule, n Lexer) (RuleValue, bool) {
 	if !debugApply {
 		return r.Match(n)
@@ -352,7 +462,7 @@ func (p *Parser) Apply(r Rule, n Lexer) (RuleValue, bool) {
 	rv, ok := r.Match(n)
 	p.applyDepth--
 	if ok {
-		fmt.Printf("%02d ! %d => %s\n", p.applyDepth, n.Mark(), descRule(r))
+		fmt.Printf("%02d * %d => %s => %#v\n", p.applyDepth, n.Mark(), descRule(r), rv)
 	}
 
 	return rv, ok
@@ -380,14 +490,6 @@ func (r *Rules) Seq(rules ...Rule) Rule {
 
 func (r *Rules) Or(rules ...Rule) Rule {
 	return &OrRule{p: r.Parser, Rules: rules}
-}
-
-func (r *Rules) Type(t lex.Type, f func(*lex.Value) RuleValue) Rule {
-	return &LexRule{r.Parser, t, f}
-}
-
-func (r *Rules) T(t lex.Type) Rule {
-	return &LexRule{r.Parser, t, nil}
 }
 
 func (r *Rules) F(x Rule, f func(RuleValue) RuleValue) Rule {
@@ -422,6 +524,30 @@ func (r *Rules) Nth(n int) func(RuleValue) RuleValue {
 
 func (r *Rules) Ref(name string) *RefRule {
 	return &RefRule{name: name}
+}
+
+func (r *Rules) Scan(name string, f func(io.RuneScanner) (RuleValue, bool)) *ScanRule {
+	return &ScanRule{name, f}
+}
+
+func (r *Rules) S(lit string) *LiteralRule {
+	return &LiteralRule{lit}
+}
+
+func (r *Rules) Re(pat string) *RegexpRule {
+	return &RegexpRule{pat, regexp.MustCompile(`\A` + pat)}
+}
+
+func (r *Rules) Not(x Rule) *NotRule {
+	return &NotRule{r.Parser, x}
+}
+
+func (r *Rules) None() *NoneRule {
+	return &NoneRule{}
+}
+
+func (r *Rules) Check(x Rule, f func(v RuleValue) (RuleValue, bool)) Rule {
+	return &CheckRule{r.Parser, x, f}
 }
 
 func descRule(r Rule) string {

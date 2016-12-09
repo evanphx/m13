@@ -1,42 +1,39 @@
 package parser
 
-import "github.com/evanphx/m13/lex"
+import (
+	"io"
+	"os"
+	"strings"
+
+	"github.com/evanphx/m13/lex"
+)
 
 type markingLexer struct {
-	lex *lex.Lexer
+	r   *strings.Reader
 	err error
 	pos int
 
-	ready []*lex.Value
+	furthest int64
 }
 
 func (m *markingLexer) Next() *lex.Value {
-	if m.pos < len(m.ready) {
-		v := m.ready[m.pos]
-		m.pos++
-
-		return v
-	}
-
-	v, err := m.lex.Next()
-	if err != nil {
-		m.err = err
-		return nil
-	}
-
-	// fmt.Printf("=> %s\n", v.Type)
-
-	m.pos++
-
-	m.ready = append(m.ready, v)
-
-	return v
+	panic("nope")
+	return nil
 }
 
 func (m *markingLexer) Mark() int {
-	return m.pos
+	pos, _ := m.r.Seek(0, os.SEEK_CUR)
+	if pos > m.furthest {
+		m.furthest = pos
+	}
+
+	return int(pos)
 }
 
 func (m *markingLexer) Rewind(p int) {
-	m.pos = p
+	m.r.Seek(int64(p), os.SEEK_SET)
+}
+
+func (m *markingLexer) RuneScanner() io.RuneScanner {
+	return m.r
 }

@@ -1,13 +1,16 @@
 package parser
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/evanphx/m13/ast"
 	"github.com/evanphx/m13/lex"
 	"github.com/pkg/errors"
 )
 
 type Parser struct {
-	lex *lex.Lexer
+	source string
 
 	root Rule
 	expr Rule
@@ -16,7 +19,7 @@ type Parser struct {
 }
 
 func NewParser(lex *lex.Lexer) (*Parser, error) {
-	p := &Parser{lex: lex}
+	p := &Parser{source: lex.Source}
 
 	p.SetupRules()
 
@@ -39,33 +42,37 @@ func (s *NodeStack) Pop() ast.Node {
 	return v
 }
 
-func (p *Parser) expect(t lex.Type) (*lex.Value, error) {
-	ne, err := p.lex.Next()
-	if err != nil {
-		return nil, err
-	}
-
-	if ne.Type != t {
-		return nil, errors.Wrapf(ErrParse,
-			"expected %d, got %d", t, ne.Type)
-	}
-
-	return ne, nil
-}
-
 func (p *Parser) Parse() (ast.Node, error) {
-	ml := &markingLexer{lex: p.lex}
+	ml := &markingLexer{r: strings.NewReader(p.source)}
 
 	v, ok := p.root.Match(ml)
 	if !ok {
-		return nil, ErrParse
+		lines := strings.Split(p.source, "\n")
+
+		var start int64
+		var target string
+		var targetPos int64
+
+		for _, line := range lines {
+			if ml.furthest > start && ml.furthest <= start+int64(len(line)) {
+				targetPos = ml.furthest - start - 1
+				target = line
+				break
+			}
+
+			start += (int64(len(line)) + 1)
+		}
+
+		marked := fmt.Sprintf("%[1]s\n% [2]*[3]s^", target, targetPos, " ")
+		fmt.Printf("%s\n", marked)
+		return nil, errors.Wrapf(ErrParse, "Error at position: %d (%d)\n%s", ml.furthest, targetPos, marked)
 	}
 
 	return v.(ast.Node), nil
 }
 
 func (p *Parser) ParseExpr() (ast.Node, error) {
-	ml := &markingLexer{lex: p.lex}
+	ml := &markingLexer{r: strings.NewReader(p.source)}
 
 	v, ok := p.expr.Match(ml)
 	if !ok {
@@ -74,59 +81,3 @@ func (p *Parser) ParseExpr() (ast.Node, error) {
 
 	return v.(ast.Node), nil
 }
-
-/*
-func (p *Parser) oldParse() (ast.Node, error) {
-	var stack NodeStack
-
-	for {
-		le, err := p.lex.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		switch le.Type {
-		case lex.Integer:
-			stack.Push(&ast.Integer{le.Value.(int64)})
-		case lex.String:
-			stack.Push(&ast.String{le.Value.(string)})
-		case lex.Atom:
-			stack.Push(&ast.Atom{le.Value.(string)})
-		case lex.True:
-			stack.Push(&ast.True{})
-		case lex.False:
-			stack.Push(&ast.False{})
-		case lex.Nil:
-			stack.Push(&ast.Nil{})
-		case lex.Word:
-			stack.Push(&ast.Variable{Name: le.Value.(string)})
-		case lex.Dot:
-			ne, err := p.expect(lex.Word)
-			if err != nil {
-				return nil, err
-			}
-
-			call := &ast.Call{
-				Receiver:   stack.Pop(),
-				MethodName: ne.Value.(string),
-			}
-
-			_, err = p.expect(lex.OpenParen)
-			if err != nil {
-				return nil, err
-			}
-
-			stack.Push(&ast.Call{
-				Receiver:   stack.Pop(),
-				MethodName: ne.Value.(string),
-			})
-		case lex.Term:
-			return stack.Pop(), nil
-		default:
-			return nil, errors.Wrapf(ErrParse, "unexpected lexem")
-		}
-	}
-
-	return nil, nil
-}
-*/

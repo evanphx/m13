@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -363,8 +364,10 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, "x", n.Args[0])
 
+		fmt.Printf("lambda: %#v\n", n)
+
 		b, ok := n.Expr.(*ast.Block)
-		require.True(t, ok)
+		require.True(t, ok, fmt.Sprintf("%T", n.Expr))
 
 		v, ok := b.Expressions[0].(*ast.Integer)
 		require.True(t, ok)
@@ -380,6 +383,9 @@ func TestParser(t *testing.T) {
 		require.NoError(t, err)
 
 		tree, err := parser.Parse()
+		if err != nil {
+			fmt.Printf(err.Error())
+		}
 		require.NoError(t, err)
 
 		n, ok := tree.(*ast.Lambda)
@@ -727,7 +733,7 @@ os.stdout().puts("hello m13");`
 	})
 
 	n.It("parser a class definition with ivar decls and traits", func() {
-		lex, err := lex.NewLexer(`class Blah { has @.age is rw is locked}`)
+		lex, err := lex.NewLexer(`class Blah { has @age is rw is locked}`)
 		require.NoError(t, err)
 
 		parser, err := NewParser(lex)
@@ -747,7 +753,7 @@ os.stdout().puts("hello m13");`
 		has, ok := blk.Expressions[0].(*ast.Has)
 		require.True(t, ok)
 
-		assert.Equal(t, ".age", has.Variable)
+		assert.Equal(t, "age", has.Variable)
 
 		assert.Equal(t, []string{"rw", "locked"}, has.Traits)
 	})
@@ -1019,6 +1025,7 @@ func TestRandomSnippits(t *testing.T) {
 		`3 == 4`,
 		`a.b == c.d`,
 		`c.expect(3.^class.name) == "builtin.I64"`,
+		`a.b c, d`,
 	}
 
 	for _, s := range snippits {
@@ -1271,7 +1278,7 @@ func TestMethodParses(t *testing.T) {
 		assert.Equal(t, int64(3), i.Value)
 	})
 
-	n.It("parses a method call without parens and a lambda", func() {
+	n.Only("parses a method call without parens and a lambda", func() {
 		lex, err := lex.NewLexer(`a.b "d", x => { 3 }`)
 		require.NoError(t, err)
 
@@ -1283,6 +1290,8 @@ func TestMethodParses(t *testing.T) {
 
 		n, ok := tree.(*ast.Call)
 		require.True(t, ok)
+
+		fmt.Printf("call: %#v\n", n)
 
 		c, ok := n.Receiver.(*ast.Variable)
 		require.True(t, ok)

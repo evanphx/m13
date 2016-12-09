@@ -1,11 +1,14 @@
 package parser
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/evanphx/m13/ast"
-	"github.com/evanphx/m13/lex"
 )
 
 func convert(rv []RuleValue) []ast.Node {
@@ -25,101 +28,322 @@ func (p *Parser) SetupRules() {
 
 	expr := r.Rec("expr")
 
-	/*
-		exprSep := r.Plus(r.Or(r.T(lex.Semi), r.T(lex.Newline)))
+	isDigit := func(r rune) bool {
+		switch r {
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return true
+		default:
+			return false
+		}
+	}
 
-		exprAnother := r.F(r.Seq(exprSep, expr), r.Nth(1))
+	skip := r.Re(`[\s\t]*`)
+	ws := r.Re(`[\s\t]+`)
 
-		exprList := r.Fs(
-			r.Seq(expr, r.Star(exprAnother)),
-			func(rv []RuleValue) RuleValue {
-				if right, ok := rv[1].([]RuleValue); ok {
-					return append([]RuleValue{rv[0]}, right...)
-				} else {
-					return rv[:1]
+	sym := func(s string) Rule {
+		return r.Seq(r.S(s), skip)
+	}
+
+	kw := func(s string) Rule {
+		return r.Seq(r.S(s), r.Not(r.Re("[a-zA-Z0-9_]")))
+	}
+
+	integer := r.Scan("integer", func(rs io.RuneScanner) (RuleValue, bool) {
+		r, _, err := rs.ReadRune()
+
+		if err != nil || !isDigit(r) {
+			return nil, false
+		}
+
+		var buf bytes.Buffer
+
+		base := 10
+
+		if r == '0' {
+			r, _, err := rs.ReadRune()
+			if err != nil {
+				return &ast.Integer{Value: int64(0)}, true
+			}
+
+			if r == 'x' {
+				base = 16
+			} else {
+				buf.WriteRune('0')
+				buf.WriteRune(r)
+			}
+		} else {
+			buf.WriteRune(r)
+		}
+
+		for {
+			r, _, err := rs.ReadRune()
+			if err == nil && isDigit(r) {
+				buf.WriteRune(r)
+				continue
+			}
+
+			rs.UnreadRune()
+
+			i, err := strconv.ParseInt(buf.String(), base, 64)
+			if err != nil {
+				return nil, false
+			}
+
+			return &ast.Integer{
+				Value: i,
+			}, true
+		}
+	})
+
+	scanDigit := func(rs io.RuneScanner, width int) (int64, error) {
+		var buf bytes.Buffer
+
+		for i := 0; i < width; i++ {
+			r, _, err := rs.ReadRune()
+			if err != nil {
+				return 0, err
+			}
+
+			buf.WriteRune(r)
+		}
+
+		return strconv.ParseInt(buf.String(), 16, 64)
+	}
+
+	qstring := r.Scan("qstring", func(rs io.RuneScanner) (RuleValue, bool) {
+		r, _, err := rs.ReadRune()
+		if err != nil || r != '"' {
+			return nil, false
+		}
+
+		var buf bytes.Buffer
+
+		for {
+			r, _, err := rs.ReadRune()
+			if err != nil {
+				return nil, false
+			}
+
+			if r == '\\' {
+				r, _, err := rs.ReadRune()
+				if err != nil {
+					return nil, false
 				}
-			})
-	*/
+
+				switch r {
+				case 'n':
+					buf.WriteByte('\n')
+				case 'r':
+					buf.WriteByte('\r')
+				case 't':
+					buf.WriteByte('\t')
+				case 'u':
+					i, err := scanDigit(rs, 4)
+					if err != nil {
+						return nil, false
+					}
+
+					buf.WriteRune(rune(i))
+				case 'U':
+					i, err := scanDigit(rs, 8)
+					if err != nil {
+						return nil, false
+					}
+
+					buf.WriteRune(rune(i))
+				default:
+					// TODO expose the bad escape code?
+					return nil, false
+				}
+
+				continue
+			}
+
+			if r != '"' {
+				buf.WriteRune(r)
+				continue
+			}
+
+			return &ast.String{
+				Value: buf.String(),
+			}, true
+		}
+	})
+
+	atom := r.Scan("atom", func(rs io.RuneScanner) (RuleValue, bool) {
+		r, _, err := rs.ReadRune()
+		if err != nil || r != ':' {
+			return nil, false
+		}
+
+		var buf bytes.Buffer
+
+		for {
+			r, _, err := rs.ReadRune()
+			if err == nil && (unicode.IsLetter(r) || unicode.IsDigit(r)) {
+				buf.WriteRune(r)
+				continue
+			}
+
+			if buf.Len() == 0 {
+				return nil, false
+			}
+
+			return &ast.Atom{Value: buf.String()}, true
+		}
+	})
+
+	rawword := r.Scan("word", func(rs io.RuneScanner) (RuleValue, bool) {
+		var buf bytes.Buffer
+
+		r, _, err := rs.ReadRune()
+		if err != nil {
+			return nil, false
+		}
+
+		if !(unicode.IsLetter(r) || r == '_') {
+			rs.UnreadRune()
+			return nil, false
+		}
+
+		buf.WriteRune(r)
+
+		for {
+			r, _, err := rs.ReadRune()
+			if err != nil {
+				break
+			}
+
+			cont := unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
+
+			if !cont {
+				rs.UnreadRune()
+				break
+			}
+
+			buf.WriteRune(r)
+		}
+
+		return buf.String(), true
+	})
+
+	keywords := map[string]bool{
+		"true":   true,
+		"false":  true,
+		"if":     true,
+		"class":  true,
+		"def":    true,
+		"import": true,
+		"nil":    true,
+	}
+
+	word := r.Check(rawword, func(v RuleValue) (RuleValue, bool) {
+		word := v.(string)
+
+		if _, isKw := keywords[word]; isKw {
+			return nil, false
+		}
+
+		return word, true
+	})
+
+	opChars := [127]bool{}
+
+	opChars['*'] = true
+	opChars['+'] = true
+	opChars['-'] = true
+	opChars['='] = true
+
+	opName := r.Scan("opName", func(rs io.RuneScanner) (RuleValue, bool) {
+		r, _, err := rs.ReadRune()
+		if err != nil {
+			return nil, false
+		}
+
+		if r >= 127 || !opChars[r] {
+			return nil, false
+		}
+
+		var buf bytes.Buffer
+
+		buf.WriteRune(r)
+
+		for {
+			r, _, err := rs.ReadRune()
+			if err != nil {
+				break
+			}
+
+			cont := r < 127 && opChars[r]
+
+			if !cont {
+				rs.UnreadRune()
+				break
+			}
+
+			buf.WriteRune(r)
+		}
+
+		switch buf.String() {
+		case "=", "=>":
+			return nil, false
+		}
+
+		return buf.String(), true
+	})
+
+	ivar := r.Re("@([a-zA-Z][a-zA-Z0-9_]*)")
 
 	prim := r.Or(
-		r.Type(lex.Integer, func(lv *lex.Value) RuleValue {
-			return &ast.Integer{lv.Value.(int64)}
+		integer,
+		qstring,
+		atom,
+		r.F(word, func(v RuleValue) RuleValue {
+			return &ast.Variable{Name: v.(string)}
 		}),
-		r.Type(lex.String, func(lv *lex.Value) RuleValue {
-			return &ast.String{lv.Value.(string)}
+		r.F(ivar, func(v RuleValue) RuleValue {
+			return &ast.IVar{v.(string)}
 		}),
-		r.Type(lex.Atom, func(lv *lex.Value) RuleValue {
-			return &ast.Atom{lv.Value.(string)}
-		}),
-		r.Type(lex.Word, func(lv *lex.Value) RuleValue {
-			return &ast.Variable{Name: lv.Value.(string)}
-		}),
-		r.Type(lex.IVar, func(lv *lex.Value) RuleValue {
-			return &ast.IVar{lv.Value.(string)}
-		}),
-		r.Type(lex.True, func(lv *lex.Value) RuleValue {
+		r.F(r.S("true"), func(v RuleValue) RuleValue {
 			return &ast.True{}
 		}),
-		r.Type(lex.False, func(lv *lex.Value) RuleValue {
+		r.F(r.S("false"), func(v RuleValue) RuleValue {
 			return &ast.False{}
 		}),
-		r.Type(lex.Nil, func(lv *lex.Value) RuleValue {
+		r.F(r.S("nil"), func(v RuleValue) RuleValue {
 			return &ast.Nil{}
 		}),
 	)
 
-	attrName := r.Or(
-		r.F(r.T(lex.Word), func(v RuleValue) RuleValue {
-			return v.(*lex.Value).Value.(string)
-		}),
-		r.F(r.T(lex.Class), func(v RuleValue) RuleValue {
-			return "class"
-		}),
-		r.F(r.T(lex.Import), func(v RuleValue) RuleValue {
-			return "import"
-		}),
-		r.F(r.T(lex.Def), func(v RuleValue) RuleValue {
-			return "def"
-		}),
-		r.F(r.T(lex.Has), func(v RuleValue) RuleValue {
-			return "has"
-		}),
-		r.F(r.T(lex.Is), func(v RuleValue) RuleValue {
-			return "is"
-		}),
-		r.F(r.T(lex.If), func(v RuleValue) RuleValue {
-			return "if"
-		}),
-		r.F(r.T(lex.While), func(v RuleValue) RuleValue {
-			return "while"
-		}),
-	)
+	methodName := r.Re("[a-zA-Z_][a-zA-Z0-9_]*")
+
+	dmc := r.F(r.Seq(r.S("."), methodName), r.Nth(1))
+	dmuc := r.F(r.Seq(r.S(".^"), methodName), r.Nth(1))
 
 	attrAccess := r.Fs(
-		r.Seq(expr, r.T(lex.Dot), attrName),
+		r.Seq(expr, dmc),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Attribute{
 				Receiver: rv[0].(ast.Node),
-				Name:     rv[2].(string),
+				Name:     rv[1].(string),
 			}
 		})
 
 	primcall0 := r.Fs(
-		r.Seq(expr, r.T(lex.Dot), attrName,
-			r.T(lex.OpenParen), r.T(lex.CloseParen)),
+		r.Seq(expr, dmc, sym("("), sym(")")),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Call{
 				Receiver:   rv[0].(ast.Node),
-				MethodName: rv[2].(string),
+				MethodName: rv[1].(string),
 			}
 		})
 
-	anotherArg := r.F(r.Seq(r.T(lex.Comma), expr), r.Nth(1))
+	anotherArg := r.F(r.Seq(r.S(","), skip, expr), r.Nth(2))
 
 	argList := r.Fs(
-		r.Seq(expr, r.Star(anotherArg)),
+		r.Seq(expr, skip, r.Star(anotherArg)),
 		func(rv []RuleValue) RuleValue {
-			if right, ok := rv[1].([]RuleValue); ok {
+			if right, ok := rv[2].([]RuleValue); ok {
 				return append([]RuleValue{rv[0]}, right...)
 			} else {
 				return rv[:1]
@@ -127,60 +351,60 @@ func (p *Parser) SetupRules() {
 		})
 
 	primcallN := r.Fs(
-		r.Seq(expr, r.T(lex.Dot), attrName,
-			r.T(lex.OpenParen), argList, r.T(lex.CloseParen)),
+		r.Seq(expr, dmc,
+			sym("("), argList, sym(")")),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Call{
 				Receiver:   rv[0].(ast.Node),
-				MethodName: rv[2].(string),
-				Args:       convert(rv[4].([]RuleValue)),
+				MethodName: rv[1].(string),
+				Args:       convert(rv[3].([]RuleValue)),
 			}
 		})
 
 	npcallN := r.Fs(
-		r.Seq(expr, r.T(lex.Dot), attrName, argList),
+		r.Seq(expr, dmc, r.Re(`[\s\t]+`), argList),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Call{
 				Receiver:   rv[0].(ast.Node),
-				MethodName: rv[2].(string),
+				MethodName: rv[1].(string),
 				Args:       convert(rv[3].([]RuleValue)),
 			}
 		})
 	upAttrAccess := r.Fs(
-		r.Seq(expr, r.T(lex.UpDot), attrName),
+		r.Seq(expr, dmuc),
 		func(rv []RuleValue) RuleValue {
 			return &ast.UpCall{
 				Receiver:   rv[0].(ast.Node),
-				MethodName: rv[2].(string),
+				MethodName: rv[1].(string),
 			}
 		})
 
 	upcall0 := r.Fs(
-		r.Seq(expr, r.T(lex.UpDot), attrName,
-			r.T(lex.OpenParen), r.T(lex.CloseParen)),
+		r.Seq(expr, dmuc,
+			sym("("), sym(")")),
 		func(rv []RuleValue) RuleValue {
 			return &ast.UpCall{
 				Receiver:   rv[0].(ast.Node),
-				MethodName: rv[2].(string),
+				MethodName: rv[1].(string),
 			}
 		})
 
 	upcallN := r.Fs(
-		r.Seq(expr, r.T(lex.UpDot), attrName,
-			r.T(lex.OpenParen), argList, r.T(lex.CloseParen)),
+		r.Seq(expr, dmuc,
+			sym("("), argList, sym(")")),
 		func(rv []RuleValue) RuleValue {
 			return &ast.UpCall{
 				Receiver:   rv[0].(ast.Node),
-				MethodName: rv[2].(string),
-				Args:       convert(rv[4].([]RuleValue)),
+				MethodName: rv[1].(string),
+				Args:       convert(rv[3].([]RuleValue)),
 			}
 		})
 
 	invoke := r.Fs(
-		r.Seq(r.T(lex.Word), r.T(lex.OpenParen), argList, r.T(lex.CloseParen)),
+		r.Seq(word, sym("("), argList, sym(")")),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Invoke{
-				Name: rv[0].(*lex.Value).Value.(string),
+				Name: rv[0].(string),
 				Args: convert(rv[2].([]RuleValue)),
 			}
 		})
@@ -188,8 +412,9 @@ func (p *Parser) SetupRules() {
 	stmtList := r.Ref("stmtList")
 
 	braceBody := r.Fs(
-		r.Seq(r.T(lex.OpenBrace), stmtList, r.T(lex.CloseBrace)),
+		r.Seq(sym("{"), stmtList, skip, sym("}")),
 		func(rv []RuleValue) RuleValue {
+			fmt.Printf("%#v\n", rv[1])
 			return &ast.Block{
 				Expressions: convert(rv[1].([]RuleValue)),
 			}
@@ -198,7 +423,7 @@ func (p *Parser) SetupRules() {
 	lambdaBody := r.Or(braceBody, expr)
 
 	lambda0 := r.Fs(
-		r.Seq(r.T(lex.Into), lambdaBody),
+		r.Seq(sym("=>"), lambdaBody),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Lambda{
 				Expr: rv[1].(ast.Node),
@@ -206,20 +431,20 @@ func (p *Parser) SetupRules() {
 		})
 
 	lambda1 := r.Fs(
-		r.Seq(r.T(lex.Word), r.T(lex.Into), lambdaBody),
+		r.Seq(word, skip, sym("=>"), lambdaBody),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Lambda{
-				Expr: rv[2].(ast.Node),
+				Expr: rv[3].(ast.Node),
 				Args: []string{
-					rv[0].(*lex.Value).Value.(string),
+					rv[0].(string),
 				},
 			}
 		})
 
-	argDefListAnother := r.F(r.Seq(r.T(lex.Comma), r.T(lex.Word)), r.Nth(1))
+	argDefListAnother := r.F(r.Seq(sym(","), word), r.Nth(1))
 
 	argDefListInner := r.Fs(
-		r.Seq(r.T(lex.Word), r.Star(argDefListAnother)),
+		r.Seq(word, r.Star(argDefListAnother)),
 		func(rv []RuleValue) RuleValue {
 			if right, ok := rv[1].([]RuleValue); ok {
 				return append([]RuleValue{rv[0]}, right...)
@@ -229,18 +454,18 @@ func (p *Parser) SetupRules() {
 		})
 
 	argDefList := r.Fs(
-		r.Seq(r.T(lex.OpenParen), argDefListInner, r.T(lex.CloseParen)),
+		r.Seq(sym("("), argDefListInner, sym(")")),
 		func(rv []RuleValue) RuleValue {
 			var args []string
 			for _, arg := range rv[1].([]RuleValue) {
-				args = append(args, arg.(*lex.Value).Value.(string))
+				args = append(args, arg.(string))
 			}
 
 			return args
 		})
 
 	lambdaN := r.Fs(
-		r.Seq(argDefList, r.T(lex.Into), lambdaBody),
+		r.Seq(argDefList, sym("=>"), lambdaBody),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Lambda{
 				Expr: rv[2].(ast.Node),
@@ -276,11 +501,11 @@ func (p *Parser) SetupRules() {
 	}
 
 	op := r.Fs(
-		r.Seq(expr, r.T(lex.Operator), expr),
+		r.Seq(expr, skip, opName, skip, expr),
 		func(rv []RuleValue) RuleValue {
-			op := rv[1].(*lex.Value).Value.(string)
+			op := rv[2].(string)
 
-			if r, ok := rv[2].(*ast.Op); ok {
+			if r, ok := rv[4].(*ast.Op); ok {
 				if getPrec(op) > getPrec(r.Name) {
 					return &ast.Op{
 						Name: r.Name,
@@ -297,7 +522,7 @@ func (p *Parser) SetupRules() {
 			return &ast.Op{
 				Name:  op,
 				Left:  rv[0].(ast.Node),
-				Right: rv[2].(ast.Node),
+				Right: rv[4].(ast.Node),
 			}
 		})
 
@@ -312,34 +537,34 @@ func (p *Parser) SetupRules() {
 
 	stmt := r.Ref("stmt")
 
-	stmtSep := r.Plus(r.Or(r.T(lex.Semi), r.T(lex.Newline)))
+	stmtSep := r.Plus(r.Or(r.S(";"), r.S("\n")))
 
-	stmtAnother := r.F(r.Seq(stmtSep, stmt), r.Nth(1))
+	stmtAnother := r.F(r.Seq(stmtSep, skip, stmt), r.Nth(2))
 
 	stmtList.Rule = r.Fs(
-		r.Seq(r.Maybe(stmtSep), stmt, r.Star(stmtAnother), r.Maybe(stmtSep)),
+		r.Seq(r.Maybe(stmtSep), skip, stmt, r.Star(stmtAnother), r.Maybe(stmtSep)),
 		func(rv []RuleValue) RuleValue {
-			if right, ok := rv[2].([]RuleValue); ok {
-				return append([]RuleValue{rv[1]}, right...)
+			if right, ok := rv[3].([]RuleValue); ok {
+				return append([]RuleValue{rv[2]}, right...)
 			} else {
-				return rv[1:2]
+				return rv[2:3]
 			}
 		})
 
 	attrAssign := r.Fs(
-		r.Seq(expr, r.T(lex.Equal), expr),
+		r.Seq(expr, skip, sym("="), skip, expr),
 		func(rv []RuleValue) RuleValue {
 			switch sv := rv[0].(type) {
 			case *ast.Variable:
 				return &ast.Assign{
 					Name:  sv.Name,
-					Value: rv[2],
+					Value: rv[4].(ast.Node),
 				}
 			case *ast.Attribute:
 				return &ast.AttributeAssign{
 					Receiver: sv.Receiver,
 					Name:     sv.Name,
-					Value:    rv[2].(ast.Node),
+					Value:    rv[4].(ast.Node),
 				}
 			default:
 				panic("can't assign that")
@@ -347,56 +572,56 @@ func (p *Parser) SetupRules() {
 		})
 
 	assign := r.Fs(
-		r.Seq(r.T(lex.Word), r.T(lex.Equal), expr),
+		r.Seq(word, skip, sym("="), skip, expr),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Assign{
-				Name:  rv[0].(*lex.Value).Value.(string),
-				Value: rv[2],
+				Name:  rv[0].(string),
+				Value: rv[4].(ast.Node),
 			}
 		})
 
-	importRest := r.F(r.Seq(r.T(lex.Dot), r.T(lex.Word)), r.Nth(1))
+	importRest := r.F(r.Seq(r.S("."), word), r.Nth(1))
 
 	importPath := r.Fs(
-		r.Seq(r.T(lex.Word), r.Star(importRest)),
+		r.Seq(word, r.Star(importRest)),
 		func(rv []RuleValue) RuleValue {
 			var path []string
 
-			path = append(path, rv[0].(*lex.Value).Value.(string))
+			path = append(path, rv[0].(string))
 
 			for _, part := range rv[1].([]RuleValue) {
-				path = append(path, part.(*lex.Value).Value.(string))
+				path = append(path, part.(string))
 			}
 
 			return path
 		})
 
 	importR := r.Fs(
-		r.Seq(r.T(lex.Import), importPath),
+		r.Seq(kw("import"), ws, importPath),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Import{
-				Path: rv[1].([]string),
+				Path: rv[2].([]string),
 			}
 		})
 
 	def := r.Fs(
-		r.Seq(r.T(lex.Def), r.T(lex.Word), r.Maybe(argDefList), braceBody),
+		r.Seq(kw("def"), ws, word, r.Maybe(argDefList), skip, braceBody),
 		func(rv []RuleValue) RuleValue {
 			var args []string
 
-			if x, ok := rv[2].([]string); ok {
+			if x, ok := rv[3].([]string); ok {
 				args = x
 			}
 
 			return &ast.Definition{
-				Name:      rv[1].(*lex.Value).Value.(string),
+				Name:      rv[2].(string),
 				Arguments: args,
-				Body:      rv[3].(ast.Node),
+				Body:      rv[5].(ast.Node),
 			}
 		})
 
 	classBody := r.Fs(
-		r.Seq(r.T(lex.OpenBrace), stmtList, r.T(lex.CloseBrace)),
+		r.Seq(sym("{"), stmtList, skip, sym("}")),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Block{
 				Expressions: convert(rv[1].([]RuleValue)),
@@ -404,22 +629,22 @@ func (p *Parser) SetupRules() {
 		})
 
 	class := r.Fs(
-		r.Seq(r.T(lex.Class), r.T(lex.Word), classBody),
+		r.Seq(kw("class"), ws, word, skip, classBody),
 		func(rv []RuleValue) RuleValue {
 			return &ast.ClassDefinition{
-				Name: rv[1].(*lex.Value).Value.(string),
-				Body: rv[2].(ast.Node),
+				Name: rv[2].(string),
+				Body: rv[4].(ast.Node),
 			}
 		})
 
-	comment := r.F(r.T(lex.Comment), func(rv RuleValue) RuleValue {
-		return &ast.Comment{Comment: rv.(*lex.Value).Value.(string)}
+	comment := r.F(r.Re(`#([^\n]*)`), func(rv RuleValue) RuleValue {
+		return &ast.Comment{Comment: rv.(string)}
 	})
 
 	is := r.Fs(
-		r.Seq(r.T(lex.Is), r.T(lex.Word)),
+		r.Seq(ws, kw("is"), ws, word),
 		func(rv []RuleValue) RuleValue {
-			return rv[1].(*lex.Value).Value.(string)
+			return rv[3].(string)
 		})
 
 	hasTraits := r.F(
@@ -435,40 +660,40 @@ func (p *Parser) SetupRules() {
 		})
 
 	has := r.Fs(
-		r.Seq(r.T(lex.Has), r.T(lex.IVar), r.Maybe(hasTraits)),
+		r.Seq(kw("has"), ws, ivar, r.Maybe(hasTraits)),
 		func(rv []RuleValue) RuleValue {
 			var traits []string
 
-			if x, ok := rv[2].([]string); ok {
+			if x, ok := rv[3].([]string); ok {
 				traits = x
 			}
 
 			return &ast.Has{
-				Variable: rv[1].(*lex.Value).Value.(string),
+				Variable: rv[2].(string),
 				Traits:   traits,
 			}
 		})
 
 	ifr := r.Fs(
-		r.Seq(r.T(lex.If), expr, braceBody),
+		r.Seq(kw("if"), ws, expr, skip, braceBody),
 		func(rv []RuleValue) RuleValue {
 			return &ast.If{
-				Cond: rv[1],
-				Body: rv[2],
+				Cond: rv[2].(ast.Node),
+				Body: rv[4].(ast.Node),
 			}
 		})
 
 	while := r.Fs(
-		r.Seq(r.T(lex.While), expr, braceBody),
+		r.Seq(kw("while"), ws, expr, skip, braceBody),
 		func(rv []RuleValue) RuleValue {
 			return &ast.While{
-				Cond: rv[1],
-				Body: rv[2],
+				Cond: rv[2].(ast.Node),
+				Body: rv[4].(ast.Node),
 			}
 		})
 
 	inc := r.Fs(
-		r.Seq(expr, r.T(lex.Inc)),
+		r.Seq(expr, sym("++")),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Inc{
 				Receiver: rv[0].(ast.Node),
@@ -476,7 +701,7 @@ func (p *Parser) SetupRules() {
 		})
 
 	dec := r.Fs(
-		r.Seq(expr, r.T(lex.Dec)),
+		r.Seq(expr, sym("--")),
 		func(rv []RuleValue) RuleValue {
 			return &ast.Dec{
 				Receiver: rv[0].(ast.Node),
@@ -488,10 +713,10 @@ func (p *Parser) SetupRules() {
 		attrAssign, assign, inc, dec,
 		expr)
 
-	p.expr = r.F(r.Seq(expr, r.T(lex.Term)), r.Nth(0))
+	p.expr = r.F(r.Seq(expr, r.None()), r.Nth(0))
 
 	p.root = r.Fs(
-		r.Seq(stmtList, r.Maybe(stmtSep), r.T(lex.Term)),
+		r.Seq(stmtList, r.Maybe(stmtSep), r.None()),
 		func(rv []RuleValue) RuleValue {
 			blk := rv[0].([]RuleValue)
 			switch len(blk) {

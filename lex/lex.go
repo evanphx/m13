@@ -17,8 +17,9 @@ type Reader interface {
 }
 
 type Lexer struct {
-	r   Reader
-	pos int
+	Source string
+	r      Reader
+	pos    int
 }
 
 //go:generate stringer -type=Type
@@ -92,7 +93,8 @@ func isAtomRune(r rune) bool {
 
 func NewLexer(in string) (*Lexer, error) {
 	lex := &Lexer{
-		r: strings.NewReader(in),
+		Source: in,
+		r:      strings.NewReader(in),
 	}
 	return lex, nil
 }
