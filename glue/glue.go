@@ -163,7 +163,7 @@ const codeTemplate2 = `
 
 {{range $type := .Types}}
 	{{range .Methods}}
-		func {{.GenName}}_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+		func {{.GenName}}_adapter(env Env, recv Value, args []Value) (Value, error) {
 			if len(args) != {{.NumArgs}} {
 				return env.ArgumentError(len(args), {{.NumArgs}})
 			}
@@ -190,14 +190,14 @@ const codeTemplate2 = `
 			return ret, nil
 		}
 
-		var method_desc_{{.GenName}} = &value.MethodDescriptor {
+		var method_desc_{{.GenName}} = &MethodDescriptor {
 			Name: "{{.Name}}",
 			Aliases: []string{
 				{{range .Aliases}}
 					"{{.}}",
 				{{end}}
 			},
-			Signature: value.Signature{
+			Signature: Signature{
 				Required: {{.NumArgs}},
 				Args: []string {
 					{{range .Args}}
@@ -209,27 +209,27 @@ const codeTemplate2 = `
 		}
 	{{end}}
 
-	var methods_{{.Name}} = []*value.MethodDescriptor{
+	var methods_{{.Name}} = []*MethodDescriptor{
 			{{range .Methods}}
 				method_desc_{{.GenName}},
 			{{end}}
 		}
 
-	func setup_{{.Name}}(setup value.Setup) {
-		setup.ApplyMethods("{{$pkg}}.{{.Name}}", methods_{{.Name}})
+	func setup_{{.Name}}(setup Setup) {
+		setup.ApplyMethods("builtin.{{.Name}}", methods_{{.Name}})
 	/*
 		pkg := setup.OpenPackage("{{$pkg}}")
 
-		methods := make(map[string]*value.Method)
+		methods := make(map[string]*Method)
 
 		{{range .Methods}}
-			methods["{{.Name}}"] = setup.MakeMethod(&value.MethodConfig{
+			methods["{{.Name}}"] = setup.MakeMethod(&MethodConfig{
 				Name: "{{.Name}}",
 				Func: {{.GenName}}_adapter,
 			})
 		{{end}}
 
-		setup.MakeClass(&value.ClassConfig{
+		setup.MakeClass(&ClassConfig{
 			Package: pkg,
 			Name: "{{.Name}}",
 			Parent: "{{.Parent}}",
@@ -239,12 +239,12 @@ const codeTemplate2 = `
 	*/
 	}
 
-	var _ = value.RegisterSetup(setup_{{.Name}})
+	var _ = RegisterSetup(setup_{{.Name}})
 {{end}}
 `
 
 func gen(files []*ast.File, out io.Writer) {
-	out.Write([]byte("package builtin\n"))
+	out.Write([]byte("package value\n"))
 
 	for _, f := range files {
 		genFile(f, out)

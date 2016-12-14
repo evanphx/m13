@@ -30,6 +30,8 @@ type Registry struct {
 	BoolClass *Class
 	I64Class  *Class
 	Mirror    *Class
+	Package   *Class
+	Lambda    *Class
 }
 
 func NewRegistry() *Registry {
@@ -70,6 +72,10 @@ func (r *Registry) OpenPackage(name string) *Package {
 		Name:    name,
 		Classes: make(map[string]*Class),
 	}
+
+	sing := r.NewClass(pkg, "$pkg", r.Object)
+
+	pkg.SetClass(sing)
 
 	r.packages.Packages[name] = pkg
 

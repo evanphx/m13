@@ -77,5 +77,11 @@ func (r *Registry) Boot() error {
 
 	r.Mirror = r.NewClass(pkg, "ObjectMirror", obj)
 
+	r.NewClass(pkg, "PackageMirror", r.Mirror)
+
+	r.Package = r.NewClass(pkg, "Package", obj)
+
+	r.Lambda = r.NewClass(pkg, "Lambda", obj)
+
 	return nil
 }

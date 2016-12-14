@@ -3,7 +3,6 @@ package vm
 import (
 	"fmt"
 
-	"github.com/evanphx/m13/builtin"
 	"github.com/evanphx/m13/insn"
 	"github.com/evanphx/m13/value"
 )
@@ -11,6 +10,7 @@ import (
 type VM struct {
 	registry *value.Registry
 	reg      []value.Value
+	top      int
 }
 
 func NewVM() (*VM, error) {
@@ -36,10 +36,8 @@ func (vm *VM) I64Class() *value.Class {
 	return vm.registry.I64Class
 }
 
-type ExecuteContext struct {
-	Sp   int
-	Code *value.Code
-	Refs []*value.Ref
+func (vm *VM) LambdaClass() *value.Class {
+	return vm.registry.Lambda
 }
 
 func isTrue(v value.Value) bool {
@@ -47,24 +45,37 @@ func isTrue(v value.Value) bool {
 		return false
 	}
 
-	if b, ok := v.(builtin.Bool); ok {
+	if b, ok := v.(value.Bool); ok {
 		return bool(b)
 	}
 
 	return true
 }
 
-func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
-	if len(vm.reg) < ctx.Sp+ctx.Code.NumRegs {
+func (vm *VM) ExecuteContext(ctx value.ExecuteContext) (value.Value, error) {
+	if len(vm.reg) < vm.top+ctx.Code.NumRegs {
 		panic("out of registers")
 	}
 
 	var (
 		ip   int
-		reg  = vm.reg[ctx.Sp:]
+		sp   = vm.top
+		reg  = vm.reg[sp:]
 		seq  = ctx.Code.Instructions
 		lits = ctx.Code.Literals
 	)
+
+	// Restore the top of the register file
+	defer func(v int) { vm.top = v }(vm.top)
+
+	vm.top += ctx.Code.NumRegs
+
+	// TODO use overlapping call args with locals in invoked lambda
+	// rather than copy them
+
+	for i, v := range ctx.Args {
+		reg[i] = v
+	}
 
 	max := len(seq)
 
@@ -85,7 +96,7 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
 		case insn.Reset:
 			reg[i.R0()] = nil
 		case insn.StoreInt:
-			reg[i.R0()] = builtin.MakeI64(i.Data())
+			reg[i.R0()] = value.MakeI64(i.Data())
 		case insn.CopyReg:
 			reg[i.R0()] = reg[i.R1()]
 		case insn.Call0:
@@ -140,7 +151,7 @@ func (vm *VM) ExecuteContext(ctx ExecuteContext) (value.Value, error) {
 	return nil, nil
 }
 
-func (vm *VM) refs(ctx ExecuteContext, ip int, sz int) []*value.Ref {
+func (vm *VM) refs(ctx value.ExecuteContext, ip int, sz int) []*value.Ref {
 	if sz == 0 {
 		return nil
 	}
@@ -159,15 +170,15 @@ func (vm *VM) refs(ctx ExecuteContext, ip int, sz int) []*value.Ref {
 	return refs
 }
 
-func (vm *VM) createLambda(ctx ExecuteContext, args int, refs []*value.Ref, code int64) *value.Lambda {
+func (vm *VM) createLambda(ctx value.ExecuteContext, args int, refs []*value.Ref, code int64) *value.Lambda {
 	if int(code) >= len(ctx.Code.SubCode) {
 		panic(fmt.Sprintf("Missing code: %d", code))
 	}
-	return value.CreateLambda(ctx.Code.SubCode[code], refs, args)
+	return value.CreateLambda(vm, ctx.Code.SubCode[code], refs, args)
 }
 
-func (vm *VM) getMirror(ctx ExecuteContext, obj value.Value) value.Value {
-	mir := &builtin.ObjectMirror{Val: obj}
+func (vm *VM) getMirror(ctx value.ExecuteContext, obj value.Value) value.Value {
+	mir := &value.ObjectMirror{Val: obj}
 	mir.SetClass(vm.registry.Mirror)
 
 	return mir

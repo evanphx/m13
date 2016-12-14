@@ -46,20 +46,13 @@ func (vm *VM) callN(recv value.Value, args []value.Value, op string) (value.Valu
 	return nil, errors.WithStack(&ErrUnknownOp{Op: op, Class: recv.Class(vm)})
 }
 
-func (vm *VM) invoke(ctx ExecuteContext, args []value.Value) (value.Value, error) {
+func (vm *VM) invoke(ctx value.ExecuteContext, args []value.Value) (value.Value, error) {
 	l := args[0].(*value.Lambda)
 
-	sub := ExecuteContext{
-		Sp:   ctx.Sp + ctx.Code.NumRegs,
+	sub := value.ExecuteContext{
 		Code: l.Code,
 		Refs: l.Refs,
-	}
-
-	// TODO use overlapping call args with locals in invoked lambda
-	// rather than copy them
-
-	for i, v := range args[1:] {
-		vm.reg[sub.Sp+i] = v
+		Args: args[1:],
 	}
 
 	return vm.ExecuteContext(sub)

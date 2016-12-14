@@ -5,15 +5,21 @@ type Ref struct {
 }
 
 type Lambda struct {
+	Object
+
 	Code *Code
 	Args int
 	Refs []*Ref
 }
 
-func CreateLambda(code *Code, refs []*Ref, args int) *Lambda {
-	return &Lambda{code, args, refs}
-}
+func CreateLambda(env Env, code *Code, refs []*Ref, args int) *Lambda {
+	lambda := &Lambda{
+		Code: code,
+		Args: args,
+		Refs: refs,
+	}
 
-func (l *Lambda) Class(env Env) *Class {
-	return nil
+	// lambda.SetClass(env.LambdaClass())
+
+	return lambda
 }

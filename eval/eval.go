@@ -35,7 +35,7 @@ func (e *Evaluator) Eval(code string) (value.Value, error) {
 		return nil, err
 	}
 
-	ctx := vm.ExecuteContext{
+	ctx := value.ExecuteContext{
 		Code: co,
 	}
 

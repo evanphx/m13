@@ -1,18 +1,16 @@
-package builtin
-
-import "github.com/evanphx/m13/value"
+package value
 
 // m13
 type String struct {
-	value.Object
-	str string
+	Object
+	String string
 }
 
 // m13 name=+
 func (s *String) add(o *String) (*String, error) {
 	var ret String = *s
 
-	ret.str += o.str
+	ret.String += o.String
 
 	return &ret, nil
 }

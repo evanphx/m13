@@ -1,19 +1,17 @@
-package builtin
+package value
 
-import "github.com/evanphx/m13/value"
+var methods_Bool = []*MethodDescriptor{}
 
-var methods_Bool = []*value.MethodDescriptor{}
-
-func setup_Bool(setup value.Setup) {
+func setup_Bool(setup Setup) {
 	setup.ApplyMethods("builtin.Bool", methods_Bool)
 	/*
 		pkg := setup.OpenPackage("builtin")
 
-		methods := make(map[string]*value.Method)
+		methods := make(map[string]*Method)
 
 
 
-		setup.MakeClass(&value.ClassConfig{
+		setup.MakeClass(&ClassConfig{
 			Package: pkg,
 			Name: "Bool",
 			Parent: "",
@@ -23,20 +21,20 @@ func setup_Bool(setup value.Setup) {
 	*/
 }
 
-var _ = value.RegisterSetup(setup_Bool)
+var _ = RegisterSetup(setup_Bool)
 
-var methods_Integer = []*value.MethodDescriptor{}
+var methods_Integer = []*MethodDescriptor{}
 
-func setup_Integer(setup value.Setup) {
+func setup_Integer(setup Setup) {
 	setup.ApplyMethods("builtin.Integer", methods_Integer)
 	/*
 		pkg := setup.OpenPackage("builtin")
 
-		methods := make(map[string]*value.Method)
+		methods := make(map[string]*Method)
 
 
 
-		setup.MakeClass(&value.ClassConfig{
+		setup.MakeClass(&ClassConfig{
 			Package: pkg,
 			Name: "Integer",
 			Parent: "",
@@ -46,9 +44,9 @@ func setup_Integer(setup value.Setup) {
 	*/
 }
 
-var _ = value.RegisterSetup(setup_Integer)
+var _ = RegisterSetup(setup_Integer)
 
-func I64_add_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+func I64_add_adapter(env Env, recv Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return env.ArgumentError(len(args), 1)
 	}
@@ -69,13 +67,13 @@ func I64_add_adapter(env value.Env, recv value.Value, args []value.Value) (value
 	return ret, nil
 }
 
-var method_desc_I64_add = &value.MethodDescriptor{
+var method_desc_I64_add = &MethodDescriptor{
 	Name: "+",
 	Aliases: []string{
 
 		"add",
 	},
-	Signature: value.Signature{
+	Signature: Signature{
 		Required: 1,
 		Args: []string{
 
@@ -85,7 +83,7 @@ var method_desc_I64_add = &value.MethodDescriptor{
 	Func: I64_add_adapter,
 }
 
-func I64_inc_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+func I64_inc_adapter(env Env, recv Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return env.ArgumentError(len(args), 0)
 	}
@@ -101,20 +99,20 @@ func I64_inc_adapter(env value.Env, recv value.Value, args []value.Value) (value
 	return ret, nil
 }
 
-var method_desc_I64_inc = &value.MethodDescriptor{
+var method_desc_I64_inc = &MethodDescriptor{
 	Name: "++",
 	Aliases: []string{
 
 		"inc",
 	},
-	Signature: value.Signature{
+	Signature: Signature{
 		Required: 0,
 		Args:     []string{},
 	},
 	Func: I64_inc_adapter,
 }
 
-func I64_lt_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+func I64_lt_adapter(env Env, recv Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return env.ArgumentError(len(args), 1)
 	}
@@ -135,10 +133,10 @@ func I64_lt_adapter(env value.Env, recv value.Value, args []value.Value) (value.
 	return ret, nil
 }
 
-var method_desc_I64_lt = &value.MethodDescriptor{
+var method_desc_I64_lt = &MethodDescriptor{
 	Name:    "<",
 	Aliases: []string{},
-	Signature: value.Signature{
+	Signature: Signature{
 		Required: 1,
 		Args: []string{
 
@@ -148,7 +146,7 @@ var method_desc_I64_lt = &value.MethodDescriptor{
 	Func: I64_lt_adapter,
 }
 
-var methods_I64 = []*value.MethodDescriptor{
+var methods_I64 = []*MethodDescriptor{
 
 	method_desc_I64_add,
 
@@ -157,31 +155,31 @@ var methods_I64 = []*value.MethodDescriptor{
 	method_desc_I64_lt,
 }
 
-func setup_I64(setup value.Setup) {
+func setup_I64(setup Setup) {
 	setup.ApplyMethods("builtin.I64", methods_I64)
 	/*
 		pkg := setup.OpenPackage("builtin")
 
-		methods := make(map[string]*value.Method)
+		methods := make(map[string]*Method)
 
 
-			methods["+"] = setup.MakeMethod(&value.MethodConfig{
+			methods["+"] = setup.MakeMethod(&MethodConfig{
 				Name: "+",
 				Func: I64_add_adapter,
 			})
 
-			methods["++"] = setup.MakeMethod(&value.MethodConfig{
+			methods["++"] = setup.MakeMethod(&MethodConfig{
 				Name: "++",
 				Func: I64_inc_adapter,
 			})
 
-			methods["<"] = setup.MakeMethod(&value.MethodConfig{
+			methods["<"] = setup.MakeMethod(&MethodConfig{
 				Name: "<",
 				Func: I64_lt_adapter,
 			})
 
 
-		setup.MakeClass(&value.ClassConfig{
+		setup.MakeClass(&ClassConfig{
 			Package: pkg,
 			Name: "I64",
 			Parent: "Integer",
@@ -191,20 +189,20 @@ func setup_I64(setup value.Setup) {
 	*/
 }
 
-var _ = value.RegisterSetup(setup_I64)
+var _ = RegisterSetup(setup_I64)
 
-var methods_BigInt = []*value.MethodDescriptor{}
+var methods_BigInt = []*MethodDescriptor{}
 
-func setup_BigInt(setup value.Setup) {
+func setup_BigInt(setup Setup) {
 	setup.ApplyMethods("builtin.BigInt", methods_BigInt)
 	/*
 		pkg := setup.OpenPackage("builtin")
 
-		methods := make(map[string]*value.Method)
+		methods := make(map[string]*Method)
 
 
 
-		setup.MakeClass(&value.ClassConfig{
+		setup.MakeClass(&ClassConfig{
 			Package: pkg,
 			Name: "BigInt",
 			Parent: "Integer",
@@ -214,9 +212,9 @@ func setup_BigInt(setup value.Setup) {
 	*/
 }
 
-var _ = value.RegisterSetup(setup_BigInt)
+var _ = RegisterSetup(setup_BigInt)
 
-func ObjectMirror_ObjectClass_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+func ObjectMirror_ObjectClass_adapter(env Env, recv Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return env.ArgumentError(len(args), 0)
 	}
@@ -235,36 +233,36 @@ func ObjectMirror_ObjectClass_adapter(env value.Env, recv value.Value, args []va
 	return ret, nil
 }
 
-var method_desc_ObjectMirror_ObjectClass = &value.MethodDescriptor{
+var method_desc_ObjectMirror_ObjectClass = &MethodDescriptor{
 	Name:    "class",
 	Aliases: []string{},
-	Signature: value.Signature{
+	Signature: Signature{
 		Required: 0,
 		Args:     []string{},
 	},
 	Func: ObjectMirror_ObjectClass_adapter,
 }
 
-var methods_ObjectMirror = []*value.MethodDescriptor{
+var methods_ObjectMirror = []*MethodDescriptor{
 
 	method_desc_ObjectMirror_ObjectClass,
 }
 
-func setup_ObjectMirror(setup value.Setup) {
+func setup_ObjectMirror(setup Setup) {
 	setup.ApplyMethods("builtin.ObjectMirror", methods_ObjectMirror)
 	/*
 		pkg := setup.OpenPackage("builtin")
 
-		methods := make(map[string]*value.Method)
+		methods := make(map[string]*Method)
 
 
-			methods["class"] = setup.MakeMethod(&value.MethodConfig{
+			methods["class"] = setup.MakeMethod(&MethodConfig{
 				Name: "class",
 				Func: ObjectMirror_ObjectClass_adapter,
 			})
 
 
-		setup.MakeClass(&value.ClassConfig{
+		setup.MakeClass(&ClassConfig{
 			Package: pkg,
 			Name: "ObjectMirror",
 			Parent: "",
@@ -274,9 +272,55 @@ func setup_ObjectMirror(setup value.Setup) {
 	*/
 }
 
-var _ = value.RegisterSetup(setup_ObjectMirror)
+var _ = RegisterSetup(setup_ObjectMirror)
 
-func String_add_adapter(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+var methods_Package = []*MethodDescriptor{}
+
+func setup_Package(setup Setup) {
+	setup.ApplyMethods("builtin.Package", methods_Package)
+	/*
+		pkg := setup.OpenPackage("builtin")
+
+		methods := make(map[string]*Method)
+
+
+
+		setup.MakeClass(&ClassConfig{
+			Package: pkg,
+			Name: "Package",
+			Parent: "",
+			Methods: methods,
+			GlobalName: "builtin.Package",
+		})
+	*/
+}
+
+var _ = RegisterSetup(setup_Package)
+
+var methods_PackageMirror = []*MethodDescriptor{}
+
+func setup_PackageMirror(setup Setup) {
+	setup.ApplyMethods("builtin.PackageMirror", methods_PackageMirror)
+	/*
+		pkg := setup.OpenPackage("builtin")
+
+		methods := make(map[string]*Method)
+
+
+
+		setup.MakeClass(&ClassConfig{
+			Package: pkg,
+			Name: "PackageMirror",
+			Parent: "",
+			Methods: methods,
+			GlobalName: "builtin.PackageMirror",
+		})
+	*/
+}
+
+var _ = RegisterSetup(setup_PackageMirror)
+
+func String_add_adapter(env Env, recv Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return env.ArgumentError(len(args), 1)
 	}
@@ -297,10 +341,10 @@ func String_add_adapter(env value.Env, recv value.Value, args []value.Value) (va
 	return ret, nil
 }
 
-var method_desc_String_add = &value.MethodDescriptor{
+var method_desc_String_add = &MethodDescriptor{
 	Name:    "+",
 	Aliases: []string{},
-	Signature: value.Signature{
+	Signature: Signature{
 		Required: 1,
 		Args: []string{
 
@@ -310,26 +354,26 @@ var method_desc_String_add = &value.MethodDescriptor{
 	Func: String_add_adapter,
 }
 
-var methods_String = []*value.MethodDescriptor{
+var methods_String = []*MethodDescriptor{
 
 	method_desc_String_add,
 }
 
-func setup_String(setup value.Setup) {
+func setup_String(setup Setup) {
 	setup.ApplyMethods("builtin.String", methods_String)
 	/*
 		pkg := setup.OpenPackage("builtin")
 
-		methods := make(map[string]*value.Method)
+		methods := make(map[string]*Method)
 
 
-			methods["+"] = setup.MakeMethod(&value.MethodConfig{
+			methods["+"] = setup.MakeMethod(&MethodConfig{
 				Name: "+",
 				Func: String_add_adapter,
 			})
 
 
-		setup.MakeClass(&value.ClassConfig{
+		setup.MakeClass(&ClassConfig{
 			Package: pkg,
 			Name: "String",
 			Parent: "",
@@ -339,4 +383,4 @@ func setup_String(setup value.Setup) {
 	*/
 }
 
-var _ = value.RegisterSetup(setup_String)
+var _ = RegisterSetup(setup_String)

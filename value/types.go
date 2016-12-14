@@ -6,11 +6,6 @@ type PackageRegistry struct {
 	Packages map[string]*Package
 }
 
-type Package struct {
-	Name    string
-	Classes map[string]*Class
-}
-
 type ClassConfig struct {
 	Package    *Package
 	Name       string

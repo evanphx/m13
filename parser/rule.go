@@ -340,10 +340,23 @@ func (t *TimesRules) Name() string {
 type ScanRule struct {
 	name string
 	f    func(rs io.RuneScanner) (RuleValue, bool)
+	m    memoRecorder
 }
 
 func (s *ScanRule) Match(n Lexer) (RuleValue, bool) {
-	return s.f(n.RuneScanner())
+	pos := n.Mark()
+
+	if mv, ok := s.m.retrieve(n); ok {
+		n.Rewind(mv.pos)
+		return mv.val, mv.ok
+	}
+
+	v, ok := s.f(n.RuneScanner())
+	if ok {
+		s.m.save(pos, n, v, true)
+	}
+
+	return v, ok
 }
 
 func (s *ScanRule) Name() string {
@@ -566,7 +579,7 @@ func (r *Rules) Ref(name string) *RefRule {
 }
 
 func (r *Rules) Scan(name string, f func(io.RuneScanner) (RuleValue, bool)) *ScanRule {
-	return &ScanRule{name, f}
+	return &ScanRule{name: name, f: f}
 }
 
 func (r *Rules) S(lit string) *LiteralRule {

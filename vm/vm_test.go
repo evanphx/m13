@@ -3,7 +3,6 @@ package vm
 import (
 	"testing"
 
-	"github.com/evanphx/m13/builtin"
 	"github.com/evanphx/m13/insn"
 	"github.com/evanphx/m13/value"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +23,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		ctx := ExecuteContext{
+		ctx := value.ExecuteContext{
 			Code: &value.Code{
 				NumRegs:      1,
 				Instructions: seq,
@@ -34,10 +33,10 @@ func TestVM(t *testing.T) {
 		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
-		val, ok := vm.reg[0].(builtin.I64)
+		val, ok := vm.reg[0].(value.I64)
 		require.True(t, ok)
 
-		assert.Equal(t, builtin.I64(1), val)
+		assert.Equal(t, value.I64(1), val)
 	})
 
 	n.It("can copy a value from one register to another", func() {
@@ -48,9 +47,9 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		vm.reg[1] = builtin.I64(47)
+		vm.reg[1] = value.I64(47)
 
-		ctx := ExecuteContext{
+		ctx := value.ExecuteContext{
 			Code: &value.Code{
 				NumRegs:      1,
 				Instructions: seq,
@@ -60,23 +59,23 @@ func TestVM(t *testing.T) {
 		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
-		val, ok := vm.reg[0].(builtin.I64)
+		val, ok := vm.reg[0].(value.I64)
 		require.True(t, ok)
 
-		assert.Equal(t, builtin.I64(47), val)
+		assert.Equal(t, value.I64(47), val)
 	})
 
 	n.It("can invoke an operator on an integer", func() {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		val, err := vm.callN(builtin.I64(3), []value.Value{builtin.I64(4)}, "+")
+		val, err := vm.callN(value.I64(3), []value.Value{value.I64(4)}, "+")
 		require.NoError(t, err)
 
-		i, ok := val.(builtin.I64)
+		i, ok := val.(value.I64)
 		require.True(t, ok)
 
-		assert.Equal(t, builtin.I64(7), i)
+		assert.Equal(t, value.I64(7), i)
 	})
 
 	n.It("calls a method", func() {
@@ -86,7 +85,7 @@ func TestVM(t *testing.T) {
 		seq = append(seq, b.Store(1, insn.Int(4)))
 		seq = append(seq, b.CallOp(0, 0, 0))
 
-		ctx := ExecuteContext{
+		ctx := value.ExecuteContext{
 			Code: &value.Code{
 				NumRegs:      2,
 				Literals:     []string{"+"},
@@ -97,15 +96,15 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		vm.reg[1] = builtin.I64(47)
+		vm.reg[1] = value.I64(47)
 
 		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
-		val, ok := vm.reg[0].(builtin.I64)
+		val, ok := vm.reg[0].(value.I64)
 		require.True(t, ok)
 
-		assert.Equal(t, builtin.I64(7), val)
+		assert.Equal(t, value.I64(7), val)
 	})
 
 	n.It("jumps over a condition body", func() {
@@ -117,7 +116,7 @@ func TestVM(t *testing.T) {
 		seq = append(seq, b.Store(0, insn.Int(4)))
 		seq = append(seq, b.Noop())
 
-		ctx := ExecuteContext{
+		ctx := value.ExecuteContext{
 			Code: &value.Code{
 				NumRegs:      2,
 				Instructions: seq,
@@ -130,10 +129,10 @@ func TestVM(t *testing.T) {
 		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
-		val, ok := vm.reg[0].(builtin.I64)
+		val, ok := vm.reg[0].(value.I64)
 		require.True(t, ok)
 
-		assert.Equal(t, builtin.I64(3), val)
+		assert.Equal(t, value.I64(3), val)
 
 	})
 
@@ -150,7 +149,7 @@ func TestVM(t *testing.T) {
 			b.Noop(),
 		)
 
-		ctx := ExecuteContext{
+		ctx := value.ExecuteContext{
 			Code: &value.Code{
 				NumRegs:      3,
 				Instructions: seq,
@@ -164,10 +163,10 @@ func TestVM(t *testing.T) {
 		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
-		val, ok := vm.reg[0].(builtin.I64)
+		val, ok := vm.reg[0].(value.I64)
 		require.True(t, ok)
 
-		assert.Equal(t, builtin.I64(3), val)
+		assert.Equal(t, value.I64(3), val)
 	})
 
 	n.It("can create and invoke lambda", func() {
@@ -187,7 +186,7 @@ func TestVM(t *testing.T) {
 			},
 		}
 
-		ctx := ExecuteContext{
+		ctx := value.ExecuteContext{
 			Code: &value.Code{
 				NumRegs:      1,
 				Instructions: seq,
@@ -201,7 +200,7 @@ func TestVM(t *testing.T) {
 		val, err := vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
-		assert.Equal(t, builtin.I64(3), val)
+		assert.Equal(t, value.I64(3), val)
 	})
 
 	n.It("passes arguments into a lambda", func() {
@@ -222,7 +221,7 @@ func TestVM(t *testing.T) {
 			Literals: []string{"++"},
 		}
 
-		ctx := ExecuteContext{
+		ctx := value.ExecuteContext{
 			Code: &value.Code{
 				NumRegs:      1,
 				Instructions: seq,
@@ -236,10 +235,10 @@ func TestVM(t *testing.T) {
 		_, err = vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
-		val, ok := vm.reg[0].(builtin.I64)
+		val, ok := vm.reg[0].(value.I64)
 		require.True(t, ok)
 
-		assert.Equal(t, builtin.I64(4), val)
+		assert.Equal(t, value.I64(4), val)
 	})
 
 	n.It("can pass and access a ref", func() {
@@ -264,7 +263,7 @@ func TestVM(t *testing.T) {
 			Literals: []string{"++"},
 		}
 
-		ctx := ExecuteContext{
+		ctx := value.ExecuteContext{
 			Code: &value.Code{
 				NumRefs:      1,
 				NumRegs:      1,
@@ -282,10 +281,10 @@ func TestVM(t *testing.T) {
 		out, err := vm.ExecuteContext(ctx)
 		require.NoError(t, err)
 
-		val, ok := out.(builtin.I64)
+		val, ok := out.(value.I64)
 		require.True(t, ok)
 
-		assert.Equal(t, builtin.I64(3), val)
+		assert.Equal(t, value.I64(3), val)
 	})
 
 	n.Meow()
