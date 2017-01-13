@@ -128,6 +128,8 @@ func (g *Generator) GenerateLambda(gn ast.Node, sc *ast.Scope) error {
 
 func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 	switch n := gn.(type) {
+	case *ast.Self:
+		g.seq = append(g.seq, insn.Builder.Self(g.sp))
 	case *ast.Integer:
 		g.seq = append(g.seq, insn.Builder.Store(g.sp, insn.Int(n.Value)))
 	case *ast.Op:

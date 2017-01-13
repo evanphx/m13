@@ -20,6 +20,10 @@ func NewVM() (*VM, error) {
 	}, nil
 }
 
+func (vm *VM) Registry() *value.Registry {
+	return vm.registry
+}
+
 func (vm *VM) Reg(i int) value.Value {
 	return vm.reg[i]
 }
@@ -174,7 +178,7 @@ func (vm *VM) createLambda(ctx value.ExecuteContext, args int, refs []*value.Ref
 	if int(code) >= len(ctx.Code.SubCode) {
 		panic(fmt.Sprintf("Missing code: %d", code))
 	}
-	return value.CreateLambda(vm, ctx.Code.SubCode[code], refs, args)
+	return value.CreateLambda(vm, ctx.Code.SubCode[code], ctx.Self, refs, args)
 }
 
 func (vm *VM) getMirror(ctx value.ExecuteContext, obj value.Value) value.Value {

@@ -95,6 +95,19 @@ func TestParser(t *testing.T) {
 		assert.True(t, ok)
 	})
 
+	n.It("parses self", func() {
+		src := `self`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		_, ok := tree.(*ast.Self)
+		assert.True(t, ok)
+	})
+
 	n.It("parses a variable", func() {
 		src := `a`
 

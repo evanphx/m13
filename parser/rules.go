@@ -229,6 +229,7 @@ func (p *Parser) SetupRules() {
 	keywords := map[string]bool{
 		"true":   true,
 		"false":  true,
+		"self":   true,
 		"if":     true,
 		"class":  true,
 		"def":    true,
@@ -311,6 +312,9 @@ func (p *Parser) SetupRules() {
 		}),
 		r.F(r.S("nil"), func(v RuleValue) RuleValue {
 			return &ast.Nil{}
+		}),
+		r.F(r.S("self"), func(v RuleValue) RuleValue {
+			return &ast.Self{}
 		}),
 	)
 

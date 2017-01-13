@@ -13,6 +13,23 @@ import (
 func TestGen(t *testing.T) {
 	n := neko.Start(t)
 
+	n.It("generates bytecode to access self", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		err = g.Generate(&ast.Self{})
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		require.Equal(t, 1, len(seq))
+
+		i := seq[0]
+
+		assert.Equal(t, insn.Self, i.Op())
+		assert.Equal(t, 0, i.R0())
+	})
+
 	n.It("generates bytecode to store an int", func() {
 		g, err := NewGenerator()
 		require.NoError(t, err)

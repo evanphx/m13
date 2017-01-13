@@ -46,6 +46,12 @@ func (v *Nil) NodeType() string {
 	return "nil"
 }
 
+type Self struct{}
+
+func (v *Self) NodeType() string {
+	return "self"
+}
+
 type Variable struct {
 	Name  string
 	Ref   bool

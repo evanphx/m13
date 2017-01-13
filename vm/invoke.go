@@ -52,6 +52,7 @@ func (vm *VM) invoke(ctx value.ExecuteContext, args []value.Value) (value.Value,
 	sub := value.ExecuteContext{
 		Code: l.Code,
 		Refs: l.Refs,
+		Self: l.Self,
 		Args: args[1:],
 	}
 

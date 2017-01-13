@@ -3,6 +3,7 @@ package value
 type ExecuteContext struct {
 	Code *Code
 	Refs []*Ref
+	Self Value
 	Args []Value
 }
 

@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/evanphx/m13/value"
@@ -20,7 +21,7 @@ func TestEvaluator(t *testing.T) {
 		require.NoError(t, err)
 
 		i, ok := val.(value.I64)
-		require.True(t, ok)
+		require.True(t, ok, fmt.Sprintf("%T", val))
 
 		assert.Equal(t, value.I64(3), i)
 	})
