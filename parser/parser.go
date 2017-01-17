@@ -44,6 +44,7 @@ func (s *NodeStack) Pop() ast.Node {
 func (p *Parser) Parse() (ast.Node, error) {
 	ml := &markingReader{r: strings.NewReader(p.source)}
 
+	var lineNum int
 	v, ok := p.root.Match(ml)
 	if !ok {
 		lines := strings.Split(p.source, "\n")
@@ -53,6 +54,7 @@ func (p *Parser) Parse() (ast.Node, error) {
 		var targetPos int64
 
 		for _, line := range lines {
+			lineNum++
 			if ml.furthest > start && ml.furthest <= start+int64(len(line)) {
 				targetPos = ml.furthest - start - 1
 				target = line
@@ -64,7 +66,7 @@ func (p *Parser) Parse() (ast.Node, error) {
 
 		marked := fmt.Sprintf("%[1]s\n% [2]*[3]s^", target, targetPos, " ")
 		fmt.Printf("%s\n", marked)
-		return nil, errors.Wrapf(ErrParse, "Error at position: %d (%d)\n%s", ml.furthest, targetPos, marked)
+		return nil, errors.Wrapf(ErrParse, "Error at position: %d (line: %d, col: %d)\n%s", ml.furthest, lineNum, targetPos, marked)
 	}
 
 	return v.(ast.Node), nil

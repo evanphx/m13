@@ -356,8 +356,6 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, "x", n.Args[0])
 
-		fmt.Printf("lambda: %#v\n", n)
-
 		b, ok := n.Expr.(*ast.Block)
 		require.True(t, ok, fmt.Sprintf("%T", n.Expr))
 
@@ -542,6 +540,28 @@ os.stdout().puts("hello m13");`
 
 	n.It("parses a method definition with no args", func() {
 		src := `def foo { 1 }`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.Definition)
+		require.True(t, ok)
+
+		assert.Equal(t, "foo", def.Name)
+
+		assert.Equal(t, 0, len(def.Arguments))
+
+		blk, ok := def.Body.(*ast.Block)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(1), blk.Expressions[0].(*ast.Integer).Value)
+	})
+
+	n.It("parses a method definition with parens and no args", func() {
+		src := `def foo() { 1 }`
 
 		parser, err := NewParser(src)
 		require.NoError(t, err)
@@ -885,6 +905,32 @@ os.stdout().puts("hello m13");`
 		assert.Equal(t, "b", v.Name)
 	})
 
+	n.It("parses an if/else", func() {
+		src := `if a { b } else { c }`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		ift, ok := tree.(*ast.If)
+		require.True(t, ok)
+
+		cond, ok := ift.Cond.(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", cond.Name)
+
+		body, ok := ift.Body.(*ast.Block)
+		require.True(t, ok)
+
+		v, ok := body.Expressions[0].(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "b", v.Name)
+	})
+
 	n.It("parses a while", func() {
 		src := `while a { b }`
 
@@ -969,6 +1015,52 @@ os.stdout().puts("hello m13");`
 		assert.Equal(t, int64(1), lit.Value)
 	})
 
+	n.It("parses a function invoke with no args", func() {
+		src := `a()`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		inv, ok := tree.(*ast.Invoke)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", inv.Name)
+
+		require.Equal(t, 0, len(inv.Args))
+	})
+
+	n.It("parses a scope/dynamic variable", func() {
+		src := `$PID`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		def, ok := tree.(*ast.ScopeVar)
+		require.True(t, ok)
+
+		assert.Equal(t, "PID", def.Name)
+	})
+
+	n.It("parses an empty list", func() {
+		src := `[]`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		list, ok := tree.(*ast.List)
+		require.True(t, ok)
+
+		assert.Equal(t, 0, len(list.Elements))
+	})
 	n.Meow()
 }
 
@@ -1239,8 +1331,6 @@ func TestMethodParses(t *testing.T) {
 		n, ok := tree.(*ast.Call)
 		require.True(t, ok)
 
-		fmt.Printf("call: %#v\n", n)
-
 		c, ok := n.Receiver.(*ast.Variable)
 		require.True(t, ok)
 
@@ -1271,6 +1361,27 @@ func TestBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	parser, err := NewParser(string(data))
+	require.NoError(t, err)
+
+	_, err = parser.Parse()
+	require.NoError(t, err, string(data))
+}
+
+func TestTest(t *testing.T) {
+	input := `new()
+  run
+`
+
+	parser, err := NewParser(input)
+	require.NoError(t, err)
+
+	_, err = parser.Parse()
+	require.NoError(t, err, input)
+
+	data, err := ioutil.ReadFile("../lib/test/test.m13")
+	require.NoError(t, err)
+
+	parser, err = NewParser(string(data))
 	require.NoError(t, err)
 
 	_, err = parser.Parse()

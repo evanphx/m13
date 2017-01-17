@@ -191,12 +191,30 @@ func (v *Comment) NodeType() string {
 	return "comment"
 }
 
+type ScopeVar struct {
+	Name string
+}
+
+func (v *ScopeVar) NodeType() string {
+	return "scopevar"
+}
+
 type IVar struct {
 	Name string
 }
 
 func (v *IVar) NodeType() string {
 	return "ivar"
+}
+
+type IVarAssign struct {
+	Name  string
+	Index int
+	Value Node
+}
+
+func (v *IVarAssign) NodeType() string {
+	return "ivarassign"
 }
 
 type Has struct {
@@ -221,6 +239,7 @@ func (v *Op) NodeType() string {
 type If struct {
 	Cond Node
 	Body Node
+	Else Node
 }
 
 func (v *If) NodeType() string {
@@ -250,4 +269,12 @@ type While struct {
 
 func (v *While) NodeType() string {
 	return "while"
+}
+
+type List struct {
+	Elements []Node
+}
+
+func (l *List) NodeType() string {
+	return "list"
 }

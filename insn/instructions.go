@@ -19,6 +19,9 @@ const (
 	StoreRef     Op = 12
 	GetMirror    Op = 13
 	Self         Op = 14
+	GetScoped    Op = 15
+	SetScoped    Op = 16
+	String       Op = 17
 )
 
 type Instruction int64
@@ -224,6 +227,36 @@ func (_ BuilderType) Self(dest int) Instruction {
 
 	out |= Instruction(Self)
 	out |= (Instruction(dest) << Reg0Shift)
+
+	return out
+}
+
+func (_ BuilderType) GetScoped(dest, lit int) Instruction {
+	var out Instruction
+
+	out |= Instruction(GetScoped)
+	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(lit) << Reg1Shift)
+
+	return out
+}
+
+func (_ BuilderType) SetScoped(src, lit int) Instruction {
+	var out Instruction
+
+	out |= Instruction(SetScoped)
+	out |= (Instruction(src) << Reg0Shift)
+	out |= (Instruction(lit) << Reg1Shift)
+
+	return out
+}
+
+func (_ BuilderType) String(dest, lit int) Instruction {
+	var out Instruction
+
+	out |= Instruction(String)
+	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(lit) << Reg1Shift)
 
 	return out
 }

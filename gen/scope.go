@@ -177,75 +177,26 @@ func NewScope() *Scope {
 }
 
 func (g *Generator) walkScope(gn ast.Node, scope *Scope) error {
-	switch n := gn.(type) {
-	case *ast.Op:
-		err := g.walkScope(n.Left, scope)
-		if err != nil {
-			return err
+	ast.Descend(gn, func(dn ast.Node) bool {
+		switch n := dn.(type) {
+		case *ast.Assign:
+			scope.Write(n)
+		case *ast.Variable:
+			scope.Read(n)
+		case *ast.Lambda:
+			subScope := NewScope()
+			subScope.Args = n.Args
+			subScope.Parent = scope
+
+			g.walkScope(n.Expr, subScope)
+
+			n.Scope = subScope.Close()
+
+			return false
 		}
 
-		err = g.walkScope(n.Right, scope)
-		if err != nil {
-			return err
-		}
-	case *ast.Block:
-		for _, ex := range n.Expressions {
-			err := g.walkScope(ex, scope)
-			if err != nil {
-				return err
-			}
-		}
-	case *ast.If:
-		err := g.walkScope(n.Cond, scope)
-		if err != nil {
-			return err
-		}
-
-		err = g.walkScope(n.Body, scope)
-		if err != nil {
-			return err
-		}
-	case *ast.While:
-		err := g.walkScope(n.Cond, scope)
-		if err != nil {
-			return err
-		}
-
-		err = g.walkScope(n.Body, scope)
-		if err != nil {
-			return err
-		}
-	case *ast.Inc:
-		err := g.walkScope(n.Receiver, scope)
-		if err != nil {
-			return err
-		}
-	case *ast.Dec:
-		err := g.walkScope(n.Receiver, scope)
-		if err != nil {
-			return err
-		}
-	case *ast.Assign:
-		err := g.walkScope(n.Value, scope)
-		if err != nil {
-			return err
-		}
-
-		scope.Write(n)
-	case *ast.Variable:
-		scope.Read(n)
-	case *ast.Lambda:
-		subScope := NewScope()
-		subScope.Args = n.Args
-		subScope.Parent = scope
-
-		err := g.walkScope(n.Expr, subScope)
-		if err != nil {
-			return err
-		}
-
-		n.Scope = subScope.Close()
-	}
+		return true
+	})
 
 	return nil
 }

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strconv"
 	"unicode"
@@ -36,8 +37,8 @@ func (p *Parser) SetupRules() {
 		}
 	}
 
-	skip := r.Re(`[\s\t]*`)
-	ws := r.Re(`[\s\t]+`)
+	skip := r.Re(`[\t ]*`)
+	ws := r.Re(`[\t ]+`)
 
 	sym := func(s string) Rule {
 		return r.Seq(r.S(s), skip)
@@ -253,6 +254,8 @@ func (p *Parser) SetupRules() {
 	opChars['+'] = true
 	opChars['-'] = true
 	opChars['='] = true
+	opChars['<'] = true
+	opChars['>'] = true
 
 	opName := r.Scan("opName", func(rs io.RuneScanner) (RuleValue, bool) {
 		r, _, err := rs.ReadRune()
@@ -304,6 +307,9 @@ func (p *Parser) SetupRules() {
 		r.F(ivar, func(v RuleValue) RuleValue {
 			return &ast.IVar{v.(string)}
 		}),
+		r.F(r.Re("\\$([a-zA-Z][a-zA-Z0-9_]*)"), func(v RuleValue) RuleValue {
+			return &ast.ScopeVar{v.(string)}
+		}),
 		r.F(r.S("true"), func(v RuleValue) RuleValue {
 			return &ast.True{}
 		}),
@@ -318,7 +324,7 @@ func (p *Parser) SetupRules() {
 		}),
 	)
 
-	methodName := r.Re("[a-zA-Z_][a-zA-Z0-9_]*")
+	methodName := r.Or(r.Re("[a-zA-Z_][a-zA-Z0-9_]*"), opName)
 
 	dmc := r.F(r.Seq(r.S("."), methodName), r.Nth(1))
 	dmuc := r.F(r.Seq(r.S(".^"), methodName), r.Nth(1))
@@ -373,6 +379,7 @@ func (p *Parser) SetupRules() {
 				Args:       convert(rv[3].([]RuleValue)),
 			}
 		})
+
 	upAttrAccess := r.Fs(
 		r.Seq(expr, dmuc),
 		func(rv []RuleValue) RuleValue {
@@ -403,14 +410,23 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	invoke := r.Fs(
-		r.Seq(word, sym("("), argList, sym(")")),
-		func(rv []RuleValue) RuleValue {
-			return &ast.Invoke{
-				Name: rv[0].(string),
-				Args: convert(rv[2].([]RuleValue)),
-			}
-		})
+	invoke := r.Or(
+		r.Fs(
+			r.Seq(word, sym("("), argList, sym(")")),
+			func(rv []RuleValue) RuleValue {
+				return &ast.Invoke{
+					Name: rv[0].(string),
+					Args: convert(rv[2].([]RuleValue)),
+				}
+			}),
+		r.Fs(
+			r.Seq(word, sym("("), sym(")")),
+			func(rv []RuleValue) RuleValue {
+				return &ast.Invoke{
+					Name: rv[0].(string),
+				}
+			}),
+	)
 
 	stmtList := r.Ref("stmtList")
 
@@ -455,16 +471,24 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	argDefList := r.Fs(
-		r.Seq(sym("("), argDefListInner, sym(")")),
-		func(rv []RuleValue) RuleValue {
-			var args []string
-			for _, arg := range rv[1].([]RuleValue) {
-				args = append(args, arg.(string))
-			}
+	argDefList := r.Or(
+		r.Fs(
+			r.Seq(sym("("), argDefListInner, sym(")")),
+			func(rv []RuleValue) RuleValue {
+				var args []string
+				for _, arg := range rv[1].([]RuleValue) {
+					args = append(args, arg.(string))
+				}
 
-			return args
-		})
+				return args
+			}),
+		r.Fs(
+			r.Seq(sym("("), sym(")")),
+			func(rv []RuleValue) RuleValue {
+				var args []string
+				return args
+			}),
+	)
 
 	lambdaN := r.Fs(
 		r.Seq(argDefList, sym("=>"), lambdaBody),
@@ -528,11 +552,18 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
+	list := r.Fs(
+		r.Seq(sym("["), sym("]")),
+		func(rv []RuleValue) RuleValue {
+			return &ast.List{}
+		})
+
 	expr.Rules = []Rule{
 		lambdaN, lambda1, lambda0,
 		upcallN, upcall0, upAttrAccess,
 		npcallN,
 		op,
+		list,
 		primcallN, primcall0, invoke,
 		attrAccess, prim,
 	}
@@ -568,8 +599,13 @@ func (p *Parser) SetupRules() {
 					Name:     sv.Name,
 					Value:    rv[4].(ast.Node),
 				}
+			case *ast.IVar:
+				return &ast.IVarAssign{
+					Name:  sv.Name,
+					Value: rv[4].(ast.Node),
+				}
 			default:
-				panic("can't assign that")
+				panic(fmt.Sprintf("can't assign that: %T", sv))
 			}
 		})
 
@@ -607,7 +643,7 @@ func (p *Parser) SetupRules() {
 		})
 
 	def := r.Fs(
-		r.Seq(kw("def"), ws, word, r.Maybe(argDefList), skip, braceBody),
+		r.Seq(kw("def"), ws, methodName, r.Maybe(argDefList), skip, braceBody),
 		func(rv []RuleValue) RuleValue {
 			var args []string
 
@@ -676,14 +712,25 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	ifr := r.Fs(
-		r.Seq(kw("if"), ws, expr, skip, braceBody),
-		func(rv []RuleValue) RuleValue {
-			return &ast.If{
-				Cond: rv[2].(ast.Node),
-				Body: rv[4].(ast.Node),
-			}
-		})
+	ifr := r.Or(
+		r.Fs(
+			r.Seq(kw("if"), ws, expr, skip, braceBody, kw("else"), skip, braceBody),
+			func(rv []RuleValue) RuleValue {
+				return &ast.If{
+					Cond: rv[2].(ast.Node),
+					Body: rv[4].(ast.Node),
+					Else: rv[7].(ast.Node),
+				}
+			}),
+		r.Fs(
+			r.Seq(kw("if"), ws, expr, skip, braceBody),
+			func(rv []RuleValue) RuleValue {
+				return &ast.If{
+					Cond: rv[2].(ast.Node),
+					Body: rv[4].(ast.Node),
+				}
+			}),
+	)
 
 	while := r.Fs(
 		r.Seq(kw("while"), ws, expr, skip, braceBody),

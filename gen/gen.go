@@ -2,6 +2,7 @@ package gen
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/evanphx/m13/ast"
 	"github.com/evanphx/m13/insn"
@@ -11,7 +12,8 @@ import (
 type Generator struct {
 	seq []insn.Instruction
 
-	sp int
+	sp     int
+	maxReg int
 
 	locals   map[string]int
 	literals []string
@@ -25,6 +27,16 @@ func NewGenerator() (*Generator, error) {
 	}
 
 	return g, nil
+}
+
+func (g *Generator) nextReg() int {
+	g.sp++
+
+	if g.sp > g.maxReg {
+		g.maxReg = g.sp
+	}
+
+	return g.sp
 }
 
 func (g *Generator) findLiteral(l string) int {
@@ -50,6 +62,8 @@ func (g *Generator) Sequence() []insn.Instruction {
 }
 
 func (g *Generator) GenerateTop(gn ast.Node) (*value.Code, error) {
+	DesugarAST(gn)
+
 	scope := NewScope()
 
 	err := g.walkScope(gn, scope)
@@ -60,6 +74,7 @@ func (g *Generator) GenerateTop(gn ast.Node) (*value.Code, error) {
 	sc := scope.Close()
 
 	g.sp += len(sc.Locals)
+	g.maxReg = g.sp
 
 	err = g.GenerateScoped(gn, sc)
 	if err != nil {
@@ -84,7 +99,7 @@ func (g *Generator) Code() (*value.Code, error) {
 	}
 
 	code := &value.Code{
-		NumRegs:      10, // TODO calculate
+		NumRegs:      g.maxReg + 1,
 		Instructions: g.seq,
 		Literals:     g.literals,
 		SubCode:      subs,
@@ -104,6 +119,7 @@ func (g *Generator) Generate(gn ast.Node) error {
 	sc := scope.Close()
 
 	g.sp += len(sc.Locals)
+	g.maxReg = g.sp
 
 	err = g.GenerateScoped(gn, sc)
 	if err != nil {
@@ -115,6 +131,7 @@ func (g *Generator) Generate(gn ast.Node) error {
 
 func (g *Generator) GenerateLambda(gn ast.Node, sc *ast.Scope) error {
 	g.sp += len(sc.Locals)
+	g.maxReg = g.sp
 
 	err := g.GenerateScoped(gn, sc)
 	if err != nil {
@@ -126,8 +143,37 @@ func (g *Generator) GenerateLambda(gn ast.Node, sc *ast.Scope) error {
 	return nil
 }
 
+func DesugarAST(gn ast.Node) {
+	ast.Rewrite(gn, func(gn ast.Node) ast.Node {
+		switch n := gn.(type) {
+		case *ast.Import:
+			return &ast.Assign{
+				Name: n.Path[len(n.Path)-1],
+				Value: &ast.Call{
+					Receiver:   &ast.ScopeVar{Name: "LOADER"},
+					MethodName: "import",
+					Args: []ast.Node{
+						&ast.String{Value: strings.Join(n.Path, ".")},
+					},
+				},
+			}
+		case *ast.Attribute:
+			return &ast.Call{
+				Receiver:   n.Receiver,
+				MethodName: n.Name,
+			}
+		default:
+			return n
+		}
+	})
+}
+
 func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 	switch n := gn.(type) {
+	case *ast.Import:
+		idx := g.findLiteral(strings.Join(n.Path, "."))
+
+		g.seq = append(g.seq, insn.Builder.GetScoped(g.sp, idx))
 	case *ast.Self:
 		g.seq = append(g.seq, insn.Builder.Self(g.sp))
 	case *ast.Integer:
@@ -138,7 +184,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 			return err
 		}
 
-		g.sp++
+		g.nextReg()
 
 		err = g.GenerateScoped(n.Right, scope)
 		if err != nil {
@@ -159,7 +205,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 		ret := g.sp
 
 		for _, arg := range n.Args {
-			g.sp++
+			g.nextReg()
 
 			err = g.GenerateScoped(arg, scope)
 			if err != nil {
@@ -183,7 +229,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 		ret := g.sp
 
 		for _, arg := range n.Args {
-			g.sp++
+			g.nextReg()
 
 			err = g.GenerateScoped(arg, scope)
 			if err != nil {
@@ -295,7 +341,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 		target := g.sp
 
 		for _, arg := range n.Args {
-			g.sp++
+			g.nextReg()
 
 			err := g.GenerateScoped(arg, scope)
 			if err != nil {
@@ -324,6 +370,15 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 			parentPos := scope.RefIndex(name)
 			g.seq = append(g.seq, insn.Builder.ReadRef(0, parentPos))
 		}
+
+	case *ast.ScopeVar:
+		idx := g.findLiteral(n.Name)
+
+		g.seq = append(g.seq, insn.Builder.GetScoped(g.sp, idx))
+	case *ast.String:
+		idx := g.findLiteral(n.Value)
+
+		g.seq = append(g.seq, insn.Builder.String(g.sp, idx))
 
 	default:
 		return fmt.Errorf("Unhandled ast type: %T", gn)
