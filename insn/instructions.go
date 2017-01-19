@@ -22,6 +22,10 @@ const (
 	GetScoped    Op = 15
 	SetScoped    Op = 16
 	String       Op = 17
+	NewList      Op = 18
+	ListAppend   Op = 19
+	GetIvar      Op = 20
+	SetIvar      Op = 21
 )
 
 type Instruction int64
@@ -202,12 +206,12 @@ func (_ BuilderType) ReadRef(reg, ref int) Instruction {
 	return out
 }
 
-func (_ BuilderType) StoreRef(reg, ref int) Instruction {
+func (_ BuilderType) StoreRef(ref, reg int) Instruction {
 	var out Instruction
 
 	out |= Instruction(StoreRef)
-	out |= (Instruction(reg) << Reg0Shift)
-	out |= (Instruction(ref) << Reg1Shift)
+	out |= (Instruction(ref) << Reg0Shift)
+	out |= (Instruction(reg) << Reg1Shift)
 
 	return out
 }
@@ -256,6 +260,46 @@ func (_ BuilderType) String(dest, lit int) Instruction {
 
 	out |= Instruction(String)
 	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(lit) << Reg1Shift)
+
+	return out
+}
+
+func (_ BuilderType) NewList(dest, reserve int) Instruction {
+	var out Instruction
+
+	out |= Instruction(NewList)
+	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(reserve) << Reg1Shift)
+
+	return out
+}
+
+func (_ BuilderType) ListAppend(list, ele int) Instruction {
+	var out Instruction
+
+	out |= Instruction(ListAppend)
+	out |= (Instruction(list) << Reg0Shift)
+	out |= (Instruction(ele) << Reg1Shift)
+
+	return out
+}
+
+func (_ BuilderType) GetIvar(dest, lit int) Instruction {
+	var out Instruction
+
+	out |= Instruction(GetIvar)
+	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(lit) << Reg1Shift)
+
+	return out
+}
+
+func (_ BuilderType) SetIvar(src, lit int) Instruction {
+	var out Instruction
+
+	out |= Instruction(SetIvar)
+	out |= (Instruction(src) << Reg0Shift)
 	out |= (Instruction(lit) << Reg1Shift)
 
 	return out

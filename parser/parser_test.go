@@ -1005,7 +1005,9 @@ os.stdout().puts("hello m13");`
 		inv, ok := tree.(*ast.Invoke)
 		require.True(t, ok)
 
-		assert.Equal(t, "a", inv.Name)
+		v := inv.Var.(*ast.Variable)
+
+		assert.Equal(t, "a", v.Name)
 
 		require.Equal(t, 1, len(inv.Args))
 
@@ -1027,7 +1029,9 @@ os.stdout().puts("hello m13");`
 		inv, ok := tree.(*ast.Invoke)
 		require.True(t, ok)
 
-		assert.Equal(t, "a", inv.Name)
+		v := inv.Var.(*ast.Variable)
+
+		assert.Equal(t, "a", v.Name)
 
 		require.Equal(t, 0, len(inv.Args))
 	})

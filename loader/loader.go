@@ -108,7 +108,7 @@ func (lp *Package) Exec(env value.Env, r *value.Registry) (*value.Package, error
 			return nil, err
 		}
 
-		code, err := g.GenerateTop(method.Def.Body)
+		code, err := g.GenerateTop(method.Def)
 		if err != nil {
 			return nil, err
 		}

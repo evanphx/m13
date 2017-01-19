@@ -412,10 +412,25 @@ func (p *Parser) SetupRules() {
 
 	invoke := r.Or(
 		r.Fs(
+			r.Seq(ivar, sym("("), argList, sym(")")),
+			func(rv []RuleValue) RuleValue {
+				return &ast.Invoke{
+					Var:  &ast.IVar{Name: rv[0].(string)},
+					Args: convert(rv[2].([]RuleValue)),
+				}
+			}),
+		r.Fs(
+			r.Seq(ivar, sym("("), sym(")")),
+			func(rv []RuleValue) RuleValue {
+				return &ast.Invoke{
+					Var: &ast.IVar{Name: rv[0].(string)},
+				}
+			}),
+		r.Fs(
 			r.Seq(word, sym("("), argList, sym(")")),
 			func(rv []RuleValue) RuleValue {
 				return &ast.Invoke{
-					Name: rv[0].(string),
+					Var:  &ast.Variable{Name: rv[0].(string)},
 					Args: convert(rv[2].([]RuleValue)),
 				}
 			}),
@@ -423,7 +438,7 @@ func (p *Parser) SetupRules() {
 			r.Seq(word, sym("("), sym(")")),
 			func(rv []RuleValue) RuleValue {
 				return &ast.Invoke{
-					Name: rv[0].(string),
+					Var: &ast.Variable{Name: rv[0].(string)},
 				}
 			}),
 	)

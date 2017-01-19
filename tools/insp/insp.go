@@ -27,7 +27,7 @@ func main() {
 		}
 
 		if *fDesugar {
-			gen.DesugarAST(node)
+			node = gen.DesugarAST(node)
 		}
 
 		ast.Print(nil, node)

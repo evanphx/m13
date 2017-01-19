@@ -98,10 +98,8 @@ func (v *UpCall) NodeType() string {
 }
 
 type Invoke struct {
-	Name  string
-	Ref   bool
-	Index int
-	Args  []Node
+	Var  Node
+	Args []Node
 }
 
 func (v *Invoke) NodeType() string {
@@ -120,6 +118,7 @@ func (v *Assign) NodeType() string {
 }
 
 type Lambda struct {
+	Name  string
 	Args  []string
 	Scope *Scope
 	Expr  Node

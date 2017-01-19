@@ -33,8 +33,7 @@ class Case {
   }
 
   def run() {
-    x = @body
-    x()
+    @body()
   }
 }
 
@@ -58,5 +57,5 @@ class Spec {
       $stdout.puts("")
     })
   }
-
 }
+

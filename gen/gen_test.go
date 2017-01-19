@@ -236,12 +236,17 @@ func TestGen(t *testing.T) {
 		g, err := NewGenerator()
 		require.NoError(t, err)
 
-		tree := &ast.Inc{
-			Receiver: &ast.Variable{Name: "a"},
+		tree := &ast.Block{
+			Expressions: []ast.Node{
+				&ast.Assign{
+					Name:  "a",
+					Value: &ast.Integer{Value: 1},
+				},
+				&ast.Inc{
+					Receiver: &ast.Variable{Name: "a"},
+				},
+			},
 		}
-
-		g.locals["a"] = 7
-		g.sp = 8
 
 		err = g.Generate(tree)
 		require.NoError(t, err)
@@ -249,10 +254,25 @@ func TestGen(t *testing.T) {
 		seq := g.Sequence()
 
 		i := seq[0]
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, int64(1), i.Data())
 
-		assert.Equal(t, insn.Call0, i.Op())
-		assert.Equal(t, 7, i.R0())
-		assert.Equal(t, 7, i.R1())
+		i = seq[1]
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 1, i.R1())
+
+		i = seq[2]
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[3]
+
+		assert.Equal(t, insn.Call0, i.Op(), i.Op().String())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, 1, i.R1())
 		assert.Equal(t, 0, i.R2())
 		assert.Equal(t, int64(0), i.Rest2())
 
@@ -263,12 +283,17 @@ func TestGen(t *testing.T) {
 		g, err := NewGenerator()
 		require.NoError(t, err)
 
-		tree := &ast.Dec{
-			Receiver: &ast.Variable{Name: "a"},
+		tree := &ast.Block{
+			Expressions: []ast.Node{
+				&ast.Assign{
+					Name:  "a",
+					Value: &ast.Integer{Value: 1},
+				},
+				&ast.Dec{
+					Receiver: &ast.Variable{Name: "a"},
+				},
+			},
 		}
-
-		g.locals["a"] = 7
-		g.sp = 8
 
 		err = g.Generate(tree)
 		require.NoError(t, err)
@@ -276,10 +301,25 @@ func TestGen(t *testing.T) {
 		seq := g.Sequence()
 
 		i := seq[0]
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, int64(1), i.Data())
 
-		assert.Equal(t, insn.Call0, i.Op())
-		assert.Equal(t, 7, i.R0())
-		assert.Equal(t, 7, i.R1())
+		i = seq[1]
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 1, i.R1())
+
+		i = seq[2]
+		assert.Equal(t, insn.CopyReg, i.Op())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[3]
+
+		assert.Equal(t, insn.Call0, i.Op(), i.Op().String())
+		assert.Equal(t, 1, i.R0())
+		assert.Equal(t, 1, i.R1())
 		assert.Equal(t, 0, i.R2())
 		assert.Equal(t, int64(0), i.Rest2())
 
@@ -479,6 +519,63 @@ func TestGen(t *testing.T) {
 		i = sub[0]
 
 		assert.Equal(t, insn.ReadRef, i.Op(), i.Op().String())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+	})
+
+	n.It("declares locals for the whole scope, not from assign point on", func() {
+		g, err := NewGenerator()
+		require.NoError(t, err)
+
+		tree := &ast.Block{
+			Expressions: []ast.Node{
+				&ast.Lambda{
+					Expr: &ast.Variable{
+						Name: "a",
+					},
+				},
+				&ast.Assign{
+					Name:  "a",
+					Value: &ast.Integer{Value: 7},
+				},
+			},
+		}
+
+		err = g.Generate(tree)
+		require.NoError(t, err)
+
+		seq := g.Sequence()
+
+		i := seq[0]
+
+		assert.Equal(t, insn.CreateLambda, i.Op(), i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+		assert.Equal(t, 1, i.R2())
+		assert.Equal(t, int64(0), i.Rest2())
+
+		i = seq[1]
+
+		assert.Equal(t, insn.ReadRef, i.Op())
+		assert.Equal(t, 0, i.R1())
+
+		sub := g.subSequences[0].Sequence()
+
+		i = sub[0]
+
+		assert.Equal(t, insn.ReadRef, i.Op(), i.Op().String())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, 0, i.R1())
+
+		i = seq[2]
+
+		assert.Equal(t, insn.StoreInt, i.Op())
+		assert.Equal(t, 0, i.R0())
+		assert.Equal(t, int64(7), i.Data())
+
+		i = seq[3]
+
+		assert.Equal(t, insn.StoreRef, i.Op())
 		assert.Equal(t, 0, i.R0())
 		assert.Equal(t, 0, i.R1())
 	})
@@ -778,7 +875,7 @@ func TestGen(t *testing.T) {
 					Value: &ast.Integer{Value: 0},
 				},
 				&ast.Invoke{
-					Name: "a",
+					Var: &ast.Variable{Name: "a"},
 					Args: []ast.Node{
 						&ast.Integer{Value: 1},
 					},

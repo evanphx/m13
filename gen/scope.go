@@ -74,6 +74,20 @@ func (s *Scope) makeRef(name string) {
 	}
 }
 
+func (s *Scope) SetArgs(args []string) {
+	s.Args = args
+
+	for _, name := range args {
+		v := &Variable{
+			Name: name,
+		}
+
+		s.Variables[name] = v
+
+		s.Ordered = append(s.Ordered, v)
+	}
+}
+
 func (s *Scope) Read(n *ast.Variable) {
 	name := n.Name
 
@@ -85,23 +99,39 @@ func (s *Scope) Read(n *ast.Variable) {
 	if v, ok = s.Variables[name]; ok {
 		v.Reads = append(v.Reads, n)
 	} else {
-		v = &Variable{
-			Name:  name,
-			Reads: []*ast.Variable{n},
+		if s.Parent != nil {
+			if pv := s.Parent.Find(name); pv != nil {
+				v = &Variable{
+					Name:  name,
+					Reads: []*ast.Variable{n},
+				}
+
+				s.Variables[name] = v
+
+				s.Ordered = append(s.Ordered, v)
+
+				pv.NeedsRef = true
+				v.NeedsRef = true
+				s.makeRef(name)
+			}
+		} else {
+			panic(fmt.Sprintf("reading unassigned variable: %s", name))
 		}
-
-		s.Variables[name] = v
-
-		s.Ordered = append(s.Ordered, v)
 	}
 
-	if s.Parent != nil {
-		if pv := s.Parent.Find(name); pv != nil {
-			pv.NeedsRef = true
-			v.NeedsRef = true
-			s.makeRef(name)
+	/*
+		else {
+			v = &Variable{
+				Name:  name,
+				Reads: []*ast.Variable{n},
+			}
+
+			s.Variables[name] = v
+
+			s.Ordered = append(s.Ordered, v)
 		}
-	}
+	*/
+
 }
 
 func (s *Scope) Write(n *ast.Assign) {
@@ -176,7 +206,7 @@ func NewScope() *Scope {
 	}
 }
 
-func (g *Generator) walkScope(gn ast.Node, scope *Scope) error {
+func (g *Generator) walkScopeOld(gn ast.Node, scope *Scope) error {
 	ast.Descend(gn, func(dn ast.Node) bool {
 		switch n := dn.(type) {
 		case *ast.Assign:
@@ -185,8 +215,9 @@ func (g *Generator) walkScope(gn ast.Node, scope *Scope) error {
 			scope.Read(n)
 		case *ast.Lambda:
 			subScope := NewScope()
-			subScope.Args = n.Args
 			subScope.Parent = scope
+
+			subScope.SetArgs(n.Args)
 
 			g.walkScope(n.Expr, subScope)
 
@@ -197,6 +228,51 @@ func (g *Generator) walkScope(gn ast.Node, scope *Scope) error {
 
 		return true
 	})
+
+	return nil
+}
+
+func (g *Generator) walkScope(gn ast.Node, scope *Scope) error {
+	type scopeWork struct {
+		lam   *ast.Lambda
+		scope *Scope
+	}
+
+	var work, done []*scopeWork
+
+	lam := &ast.Lambda{Expr: gn}
+
+	work = append(work, &scopeWork{lam, scope})
+
+	for len(work) > 0 {
+		ls := work[0]
+		work = work[1:]
+
+		ast.Descend(ls.lam.Expr, func(dn ast.Node) bool {
+			switch n := dn.(type) {
+			case *ast.Variable:
+				ls.scope.Read(n)
+			case *ast.Assign:
+				ls.scope.Write(n)
+			case *ast.Lambda:
+				subScope := NewScope()
+				subScope.Parent = ls.scope
+				subScope.SetArgs(n.Args)
+
+				work = append(work, &scopeWork{n, subScope})
+
+				return false
+			}
+
+			return true
+		})
+
+		done = append(done, ls)
+	}
+
+	for _, ls := range done {
+		ls.lam.Scope = ls.scope.Close()
+	}
 
 	return nil
 }
