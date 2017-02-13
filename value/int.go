@@ -2,9 +2,7 @@
 
 package value
 
-import (
-	"math/big"
-)
+import "math/big"
 
 // m13
 type Integer struct{}

@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/evanphx/m13/gen"
+	"github.com/evanphx/m13/loader"
 	"github.com/evanphx/m13/parser"
+	"github.com/evanphx/m13/vm"
 )
 
-func main() {
+func oldmain() {
 	tree, err := parser.ParseFile(os.Args[1])
 	if err != nil {
 		fmt.Printf("ERROR: Unable to load file: %s\n", err)
@@ -28,4 +31,23 @@ func main() {
 	}
 
 	fmt.Printf("code: %v\n", code)
+}
+
+func main() {
+	lp, err := loader.LoadFile(os.Args[1])
+	if err != nil {
+		panic(err)
+	}
+
+	v, err := vm.NewVM()
+	if err != nil {
+		panic(err)
+	}
+
+	ctx := context.TODO()
+
+	_, err = lp.Exec(ctx, v, v.Registry())
+	if err != nil {
+		panic(err)
+	}
 }

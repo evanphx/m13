@@ -1,7 +1,10 @@
 package loader
 
 import (
+	"context"
+	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/evanphx/m13/ast"
@@ -37,6 +40,10 @@ func Load(path string) (*Package, error) {
 	}
 
 	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
 		path := filepath.Join(path, file.Name())
 		lp.files = append(lp.files, path)
 
@@ -99,31 +106,115 @@ func (lp *Package) Methods() []*Method {
 	return lp.methods
 }
 
-func (lp *Package) Exec(env value.Env, r *value.Registry) (*value.Package, error) {
+func (lp *Package) Exec(ctx context.Context, env value.Env, r *value.Registry) (*value.Package, error) {
 	pkg := r.OpenPackage(lp.name)
 
-	for _, method := range lp.methods {
+	cls := env.MustFindClass("builtin.Loader")
+
+	lo := &Loader{}
+	lo.SetClass(cls)
+	lo.Search = []string{"lib"}
+
+	ctx = value.SetScoped(ctx, "LOADER", lo)
+	ctx = value.SetScoped(ctx, "stdout", value.NewIO(env, os.Stdout))
+
+	for _, tree := range lp.trees {
 		g, err := gen.NewGenerator()
 		if err != nil {
 			return nil, err
 		}
 
-		code, err := g.GenerateTop(method.Def)
+		code, err := g.GenerateTop(tree)
 		if err != nil {
 			return nil, err
 		}
 
-		pkg.Class(env).AddMethod(&value.MethodDescriptor{
-			Name: method.Name,
-			Func: func(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
-				return env.ExecuteContext(value.ExecuteContext{
-					Code: code,
-					Self: recv,
-					Args: args,
-				})
-			},
+		refs := make([]*value.Ref, code.NumRefs)
+
+		for i := 0; i < code.NumRefs; i++ {
+			refs[i] = &value.Ref{}
+		}
+
+		_, err = env.ExecuteContext(ctx, value.ExecuteContext{
+			Code: code,
+			Self: pkg,
+			Refs: refs,
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
+	/*
+		for _, method := range lp.methods {
+			g, err := gen.NewGenerator()
+			if err != nil {
+				return nil, err
+			}
+
+			code, err := g.GenerateTop(method.Def)
+			if err != nil {
+				return nil, err
+			}
+
+			pkg.Class(env).AddMethod(&value.MethodDescriptor{
+				Name: method.Name,
+				Func: func(env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+					return env.ExecuteContext(value.ExecuteContext{
+						Code: code,
+						Self: recv,
+						Args: args,
+					})
+				},
+			})
+		}
+	*/
+
 	return pkg, nil
+}
+
+type Loader struct {
+	value.Object
+
+	Search []string
+}
+
+func Init(pkg *value.Package, r *value.Registry) {
+	cls := r.NewClass(pkg, "Loader", r.Object)
+	cls.AddMethod(&value.MethodDescriptor{
+		Name: "import",
+		Signature: value.Signature{
+			Required: 1,
+		},
+		Func: func(ctx context.Context, env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+			lo := recv.(*Loader)
+			str := args[0].(*value.String)
+
+			for _, dir := range lo.Search {
+				path := filepath.Join(dir, str.String)
+
+				stat, err := os.Stat(path)
+				if err != nil {
+					continue
+				}
+
+				if !stat.IsDir() {
+					continue
+				}
+
+				lp, err := Load(path)
+				if err != nil {
+					return nil, err
+				}
+
+				return lp.Exec(ctx, env, r)
+			}
+
+			return nil, fmt.Errorf("Unable to find %s to import", str.String)
+		},
+	})
+}
+
+func init() {
+	value.AddInit(Init)
 }

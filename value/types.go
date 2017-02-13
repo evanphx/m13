@@ -1,6 +1,9 @@
 package value
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type PackageRegistry struct {
 	Packages map[string]*Package
@@ -24,6 +27,7 @@ type Class struct {
 	Name       string
 	GlobalName string
 	Methods    map[string]*Method
+	Ivars      map[string]int
 }
 
 func (c *Class) Class(env Env) *Class {
@@ -37,18 +41,20 @@ func (t *Class) FullName() string {
 type MethodConfig struct {
 	Name      string
 	Signature Signature
-	Func      func(env Env, recv Value, args []Value) (Value, error)
+	Func      func(ctx context.Context, env Env, recv Value, args []Value) (Value, error)
 }
 
 type Method struct {
 	Name      string
 	Signature Signature
-	F         func(env Env, recv Value, args []Value) (Value, error)
+	Object    interface{}
+	Func      func(ctx context.Context, env Env, recv Value, args []Value) (Value, error)
 }
 
 type MethodDescriptor struct {
 	Name      string
 	Aliases   []string
 	Signature Signature
-	Func      func(env Env, recv Value, args []Value) (Value, error)
+	Object    interface{}
+	Func      func(ctx context.Context, env Env, recv Value, args []Value) (Value, error)
 }

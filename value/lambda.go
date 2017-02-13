@@ -25,3 +25,11 @@ func CreateLambda(env Env, code *Code, self Value, refs []*Ref, args int) *Lambd
 
 	return lambda
 }
+
+func (l *Lambda) RedirectSelf(recv Value) *Lambda {
+	var dup Lambda = *l
+
+	dup.Self = recv
+
+	return &dup
+}

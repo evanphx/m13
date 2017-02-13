@@ -10,17 +10,21 @@ def spec(name, body) {
 class Expectation {
   has @object
 
+  def initialize(obj) {
+    @object = obj
+  }
+
   def ==(other) {
     if @object == object {
-      $stdout.print(".")
+      1
     } else {
-      $stdout.print("!")
+      $stdout.puts("FAIL: Expected "+ @object.^inspect + " to equal " + object.^inspect)
     }
   }
 }
 
 class Case {
-  has @description
+  has @description is r
   has @body
 
   def initialize(description, body) {
@@ -33,7 +37,7 @@ class Case {
   }
 
   def run() {
-    @body()
+    @body(self)
   }
 }
 
@@ -51,10 +55,10 @@ class Spec {
   }
 
   def run() {
+    $stdout.puts("  " + @name)
     @cases.each(c => {
       $stdout.puts("• " + c.description)
       c.run
-      $stdout.puts("")
     })
   }
 }

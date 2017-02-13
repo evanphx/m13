@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"context"
 	"testing"
 
 	"github.com/evanphx/m13/insn"
@@ -30,7 +31,7 @@ func TestVM(t *testing.T) {
 			},
 		}
 
-		_, err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(context.TODO(), ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(value.I64)
@@ -56,7 +57,7 @@ func TestVM(t *testing.T) {
 			},
 		}
 
-		_, err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(context.TODO(), ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(value.I64)
@@ -69,7 +70,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		val, err := vm.callN(value.I64(3), []value.Value{value.I64(4)}, "+")
+		val, err := vm.callN(context.TODO(), value.I64(3), []value.Value{value.I64(4)}, "+")
 		require.NoError(t, err)
 
 		i, ok := val.(value.I64)
@@ -98,7 +99,7 @@ func TestVM(t *testing.T) {
 
 		vm.reg[1] = value.I64(47)
 
-		_, err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(context.TODO(), ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(value.I64)
@@ -126,7 +127,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		_, err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(context.TODO(), ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(value.I64)
@@ -143,7 +144,7 @@ func TestVM(t *testing.T) {
 			b.Store(0, insn.Int(0)),
 			b.Store(1, insn.Int(3)),
 			b.CallOp(2, 0, 0),
-			b.GotoIfFalse(2, 6),
+			b.GotoIfFalse(2, 7),
 			b.Call0(0, 0, 1),
 			b.Goto(2),
 			b.Noop(),
@@ -160,7 +161,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		_, err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(context.TODO(), ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(value.I64)
@@ -197,7 +198,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		val, err := vm.ExecuteContext(ctx)
+		val, err := vm.ExecuteContext(context.TODO(), ctx)
 		require.NoError(t, err)
 
 		assert.Equal(t, value.I64(3), val)
@@ -232,7 +233,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		_, err = vm.ExecuteContext(ctx)
+		_, err = vm.ExecuteContext(context.TODO(), ctx)
 		require.NoError(t, err)
 
 		val, ok := vm.reg[0].(value.I64)
@@ -278,7 +279,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		out, err := vm.ExecuteContext(ctx)
+		out, err := vm.ExecuteContext(context.TODO(), ctx)
 		require.NoError(t, err)
 
 		val, ok := out.(value.I64)

@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"context"
 	"testing"
 
 	"github.com/evanphx/m13/vm"
@@ -26,7 +27,7 @@ func TestLoader(t *testing.T) {
 		v, err := vm.NewVM()
 		require.NoError(t, err)
 
-		pkg, err := lpkg.Exec(v, v.Registry())
+		pkg, err := lpkg.Exec(context.TODO(), v, v.Registry())
 		require.NoError(t, err)
 
 		assert.Equal(t, "add", pkg.Class(v).Methods["add"].Name)

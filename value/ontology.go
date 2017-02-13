@@ -19,6 +19,9 @@ func bootClass(pkg *Package, name string, parent *Class) *Class {
 func (r *Registry) NewClass(pkg *Package, name string, parent *Class) *Class {
 	cls := bootClass(pkg, name, parent)
 	cls.Object.class = r.Class
+
+	r.types[cls.GlobalName] = cls
+
 	return cls
 }
 
@@ -66,6 +69,7 @@ func (r *Registry) Boot() error {
 	r.Class = cls
 
 	r.BoolClass = r.NewClass(pkg, "Bool", obj)
+	r.NilClass = r.NewClass(pkg, "NilClass", obj)
 
 	intClass := r.NewClass(pkg, "Integer", obj)
 
@@ -73,15 +77,42 @@ func (r *Registry) Boot() error {
 
 	r.NewClass(pkg, "BigInt", intClass)
 
-	r.NewClass(pkg, "String", obj)
+	r.String = r.NewClass(pkg, "String", obj)
 
 	r.Mirror = r.NewClass(pkg, "ObjectMirror", obj)
 
-	r.NewClass(pkg, "PackageMirror", r.Mirror)
+	cm := r.NewClass(pkg, "ClassMirror", r.Mirror)
+
+	pm := r.NewClass(pkg, "PackageMirror", r.Mirror)
 
 	r.Package = r.NewClass(pkg, "Package", obj)
 
 	r.Lambda = r.NewClass(pkg, "Lambda", obj)
 
+	r.List = r.NewClass(pkg, "List", obj)
+
+	r.IO = r.NewClass(pkg, "IO", obj)
+
+	initClass(pkg, r.Class)
+	initList(pkg, r.List)
+	initIO(pkg, r.IO)
+	initString(pkg, r.String)
+
+	initObjectMirror(r.Mirror)
+	initPackageMirror(pkg, pm)
+	initClassMirror(pkg, cm)
+
+	for _, f := range inits {
+		f(pkg, r)
+	}
+
+	initFinalObjectMirror(r.Mirror)
+
 	return nil
+}
+
+var inits []func(pkg *Package, r *Registry)
+
+func AddInit(f func(pkg *Package, r *Registry)) {
+	inits = append(inits, f)
 }

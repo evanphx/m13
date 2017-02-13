@@ -25,6 +25,7 @@ type Registry struct {
 	packages PackageRegistry
 	types    map[string]*Class
 
+	NilClass  *Class
 	Object    *Class
 	Class     *Class
 	BoolClass *Class
@@ -32,6 +33,9 @@ type Registry struct {
 	Mirror    *Class
 	Package   *Class
 	Lambda    *Class
+	String    *Class
+	List      *Class
+	IO        *Class
 }
 
 func NewRegistry() *Registry {
@@ -63,6 +67,15 @@ func (r *Registry) FindClass(globalName string) (*Class, bool) {
 	return t, true
 }
 
+func (r *Registry) MustFindClass(name string) *Class {
+	cls, ok := r.FindClass(name)
+	if !ok {
+		panic("Unable to find class")
+	}
+
+	return cls
+}
+
 func (r *Registry) OpenPackage(name string) *Package {
 	if pkg, ok := r.packages.Packages[name]; ok {
 		return pkg
@@ -73,7 +86,7 @@ func (r *Registry) OpenPackage(name string) *Package {
 		Classes: make(map[string]*Class),
 	}
 
-	sing := r.NewClass(pkg, "$pkg", r.Object)
+	sing := r.NewClass(pkg, "$pkg", r.Package)
 
 	pkg.SetClass(sing)
 
@@ -99,7 +112,7 @@ func (r *Registry) MakeClass(cfg *ClassConfig) *Class {
 func (r *Registry) MakeMethod(cfg *MethodConfig) *Method {
 	return &Method{
 		Name: cfg.Name,
-		F:    cfg.Func,
+		Func: cfg.Func,
 	}
 }
 

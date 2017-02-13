@@ -1,5 +1,7 @@
 package value
 
+import "context"
+
 var methods_Bool = []*MethodDescriptor{}
 
 func setup_Bool(setup Setup) {
@@ -46,7 +48,7 @@ func setup_Integer(setup Setup) {
 
 var _ = RegisterSetup(setup_Integer)
 
-func I64_add_adapter(env Env, recv Value, args []Value) (Value, error) {
+func I64_add_adapter(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return env.ArgumentError(len(args), 1)
 	}
@@ -83,7 +85,7 @@ var method_desc_I64_add = &MethodDescriptor{
 	Func: I64_add_adapter,
 }
 
-func I64_inc_adapter(env Env, recv Value, args []Value) (Value, error) {
+func I64_inc_adapter(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return env.ArgumentError(len(args), 0)
 	}
@@ -112,7 +114,7 @@ var method_desc_I64_inc = &MethodDescriptor{
 	Func: I64_inc_adapter,
 }
 
-func I64_lt_adapter(env Env, recv Value, args []Value) (Value, error) {
+func I64_lt_adapter(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return env.ArgumentError(len(args), 1)
 	}
@@ -214,7 +216,7 @@ func setup_BigInt(setup Setup) {
 
 var _ = RegisterSetup(setup_BigInt)
 
-func ObjectMirror_ObjectClass_adapter(env Env, recv Value, args []Value) (Value, error) {
+func ObjectMirror_ObjectClass_adapter(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return env.ArgumentError(len(args), 0)
 	}
@@ -320,7 +322,7 @@ func setup_PackageMirror(setup Setup) {
 
 var _ = RegisterSetup(setup_PackageMirror)
 
-func String_add_adapter(env Env, recv Value, args []Value) (Value, error) {
+func String_add_adapter(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return env.ArgumentError(len(args), 1)
 	}

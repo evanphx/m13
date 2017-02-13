@@ -1,6 +1,8 @@
 package eval
 
 import (
+	"context"
+
 	"github.com/evanphx/m13/gen"
 	"github.com/evanphx/m13/parser"
 	"github.com/evanphx/m13/value"
@@ -44,5 +46,5 @@ func (e *Evaluator) Eval(code string) (value.Value, error) {
 		return nil, err
 	}
 
-	return vm.ExecuteContext(ctx)
+	return vm.ExecuteContext(context.TODO(), ctx)
 }
