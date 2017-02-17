@@ -1,0 +1,27 @@
+package value
+
+import context
+
+class List {
+  has @data : []Value
+
+  gdef <<(v) {
+    self.data = append(self.data, v)
+    return self, nil
+  }
+
+  def blah(a:F) {
+    true
+  }
+
+  gdef each(lambda : *Lambda) {
+    for _, v := range self.data {
+      _, err := env.InvokeLambda(ctx, lambda, []Value{v})
+      if err != nil {
+        return nil, err
+      }
+    }
+
+    return self, nil
+  }
+}

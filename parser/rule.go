@@ -3,6 +3,8 @@ package parser
 import (
 	"bytes"
 	"fmt"
+	"go/scanner"
+	"go/token"
 	"io"
 	"regexp"
 	"strings"
@@ -337,6 +339,72 @@ func (t *TimesRules) Name() string {
 	return descRule(t.Rule) + fmt.Sprintf("{%d..%d}", t.Min, t.Max)
 }
 
+type GoRule struct {
+	p     *Parser
+	name  string
+	m     memoRecorder
+	until token.Token
+}
+
+func (s *GoRule) Match(n Lexer) (RuleValue, bool) {
+	pos := n.Mark()
+
+	if mv, ok := s.m.retrieve(n); ok {
+		n.Rewind(mv.pos)
+		return mv.val, mv.ok
+	}
+
+	var gs scanner.Scanner
+
+	fset := token.NewFileSet()
+
+	rest := []byte(s.p.source[pos:])
+
+	file := fset.AddFile("", fset.Base(), len(rest))
+
+	gs.Init(file, rest, nil /* no error handler */, scanner.ScanComments)
+
+	var (
+		size  int
+		depth int
+	)
+
+OUTER:
+	for {
+		pos, tok, _ := gs.Scan()
+		if tok == token.EOF {
+			return nil, false
+		}
+
+		switch tok {
+		case token.LBRACE:
+			depth++
+		case token.RBRACE:
+			depth--
+			if depth == 0 {
+				size = fset.Position(pos).Offset + 1
+				break OUTER
+			}
+		}
+
+		// fmt.Printf("%s\t%s\t%q\n", fset.Position(pos), tok, lit)
+	}
+
+	v := string(rest[:size])
+
+	// fmt.Printf("scanned go code:\n<BEGIN>\n%s\n<END>\n", v)
+
+	n.Rewind(pos + size)
+
+	s.m.save(pos, n, v, true)
+
+	return v, true
+}
+
+func (s *GoRule) Name() string {
+	return s.name
+}
+
 type ScanRule struct {
 	name string
 	f    func(rs io.RuneScanner) (RuleValue, bool)
@@ -580,6 +648,10 @@ func (r *Rules) Ref(name string) *RefRule {
 
 func (r *Rules) Scan(name string, f func(io.RuneScanner) (RuleValue, bool)) *ScanRule {
 	return &ScanRule{name: name, f: f}
+}
+
+func (r *Rules) GoCode(name string, until token.Token) *GoRule {
+	return &GoRule{p: r.Parser, name: name, until: until}
 }
 
 func (r *Rules) S(lit string) *LiteralRule {

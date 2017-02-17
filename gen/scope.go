@@ -14,7 +14,7 @@ type Variable struct {
 }
 
 type Scope struct {
-	Args      []string
+	Args      []*ast.ArgDef
 	Parent    *Scope
 	Variables map[string]*Variable
 	Ordered   []*Variable
@@ -59,7 +59,7 @@ func (s *Scope) findRef(name string) int {
 
 func (s *Scope) findArg(name string) int {
 	for i := 0; i < len(s.Args); i++ {
-		if s.Args[i] == name {
+		if s.Args[i].Name == name {
 			return i
 		}
 	}
@@ -74,15 +74,15 @@ func (s *Scope) makeRef(name string) {
 	}
 }
 
-func (s *Scope) SetArgs(args []string) {
+func (s *Scope) SetArgs(args []*ast.ArgDef) {
 	s.Args = args
 
-	for _, name := range args {
+	for _, arg := range args {
 		v := &Variable{
-			Name: name,
+			Name: arg.Name,
 		}
 
-		s.Variables[name] = v
+		s.Variables[arg.Name] = v
 
 		s.Ordered = append(s.Ordered, v)
 	}

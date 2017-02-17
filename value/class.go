@@ -180,7 +180,7 @@ func initClassMirror(r *Package, cls *Class) {
 
 			list := args[1].(*List)
 
-			for _, trait := range list.slice {
+			for _, trait := range list.data {
 				str := trait.(*String)
 
 				switch str.String {

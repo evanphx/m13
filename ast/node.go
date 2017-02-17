@@ -119,7 +119,7 @@ func (v *Assign) NodeType() string {
 
 type Lambda struct {
 	Name  string
-	Args  []string
+	Args  []*ArgDef
 	Scope *Scope
 	Expr  Node
 }
@@ -144,6 +144,14 @@ func (v *Import) NodeType() string {
 	return "import"
 }
 
+type Package struct {
+	Name string
+}
+
+func (v *Package) NodeType() string {
+	return "package"
+}
+
 type Attribute struct {
 	Receiver Node
 	Name     string
@@ -163,9 +171,28 @@ func (v *AttributeAssign) NodeType() string {
 	return "attribute-assign"
 }
 
+type ArgDef struct {
+	Name string
+	Type *Type
+}
+
+func (a *ArgDef) NodeType() string {
+	return "argdef"
+}
+
+type GoDefinition struct {
+	Name      string
+	Arguments []*ArgDef
+	Body      string
+}
+
+func (v *GoDefinition) NodeType() string {
+	return "gdef"
+}
+
 type Definition struct {
 	Name      string
-	Arguments []string
+	Arguments []*ArgDef
 	Body      Node
 }
 
@@ -218,6 +245,7 @@ func (v *IVarAssign) NodeType() string {
 
 type Has struct {
 	Variable string
+	Type     *Type
 	Traits   []string
 }
 
@@ -276,4 +304,12 @@ type List struct {
 
 func (l *List) NodeType() string {
 	return "list"
+}
+
+type Type struct {
+	Name string
+}
+
+func (t *Type) NodeType() string {
+	return "type"
 }

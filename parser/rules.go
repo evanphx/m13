@@ -227,6 +227,12 @@ func (p *Parser) SetupRules() {
 		return buf.String(), true
 	})
 
+	declType := r.F(
+		r.Re(`[a-zA-Z0-9\*\[\]]+`),
+		func(rv RuleValue) RuleValue {
+			return &ast.Type{Name: rv.(string)}
+		})
+
 	keywords := map[string]bool{
 		"true":   true,
 		"false":  true,
@@ -468,16 +474,30 @@ func (p *Parser) SetupRules() {
 		func(rv []RuleValue) RuleValue {
 			return &ast.Lambda{
 				Expr: rv[3].(ast.Node),
-				Args: []string{
-					rv[0].(string),
+				Args: []*ast.ArgDef{
+					&ast.ArgDef{Name: rv[0].(string)},
 				},
 			}
 		})
 
-	argDefListAnother := r.F(r.Seq(sym(","), word), r.Nth(1))
+	argDef := r.Or(
+		r.Fs(
+			r.Seq(word, skip, sym(":"), declType),
+			func(rv []RuleValue) RuleValue {
+				return &ast.ArgDef{
+					Name: rv[0].(string),
+					Type: rv[3].(*ast.Type),
+				}
+			}),
+		r.F(word, func(rv RuleValue) RuleValue {
+			return &ast.ArgDef{Name: rv.(string)}
+		}),
+	)
+
+	argDefListAnother := r.F(r.Seq(sym(","), argDef), r.Nth(1))
 
 	argDefListInner := r.Fs(
-		r.Seq(word, r.Star(argDefListAnother)),
+		r.Seq(argDef, r.Star(argDefListAnother)),
 		func(rv []RuleValue) RuleValue {
 			if right, ok := rv[1].([]RuleValue); ok {
 				return append([]RuleValue{rv[0]}, right...)
@@ -490,9 +510,9 @@ func (p *Parser) SetupRules() {
 		r.Fs(
 			r.Seq(sym("("), argDefListInner, sym(")")),
 			func(rv []RuleValue) RuleValue {
-				var args []string
+				var args []*ast.ArgDef
 				for _, arg := range rv[1].([]RuleValue) {
-					args = append(args, arg.(string))
+					args = append(args, arg.(*ast.ArgDef))
 				}
 
 				return args
@@ -500,7 +520,7 @@ func (p *Parser) SetupRules() {
 		r.Fs(
 			r.Seq(sym("("), sym(")")),
 			func(rv []RuleValue) RuleValue {
-				var args []string
+				var args []*ast.ArgDef
 				return args
 			}),
 	)
@@ -510,7 +530,7 @@ func (p *Parser) SetupRules() {
 		func(rv []RuleValue) RuleValue {
 			return &ast.Lambda{
 				Expr: rv[2].(ast.Node),
-				Args: rv[0].([]string),
+				Args: rv[0].([]*ast.ArgDef),
 			}
 		})
 
@@ -657,12 +677,38 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
+	packageR := r.Fs(
+		r.Seq(kw("package"), ws, word),
+		func(rv []RuleValue) RuleValue {
+			return &ast.Package{
+				Name: rv[2].(string),
+			}
+		})
+
+	gBody := r.GoCode("gBody", 0)
+
+	gdef := r.Fs(
+		r.Seq(kw("gdef"), ws, methodName, r.Maybe(argDefList), skip, gBody),
+		func(rv []RuleValue) RuleValue {
+			var args []*ast.ArgDef
+
+			if x, ok := rv[3].([]*ast.ArgDef); ok {
+				args = x
+			}
+
+			return &ast.GoDefinition{
+				Name:      rv[2].(string),
+				Arguments: args,
+				Body:      rv[5].(string),
+			}
+		})
+
 	def := r.Fs(
 		r.Seq(kw("def"), ws, methodName, r.Maybe(argDefList), skip, braceBody),
 		func(rv []RuleValue) RuleValue {
-			var args []string
+			var args []*ast.ArgDef
 
-			if x, ok := rv[3].([]string); ok {
+			if x, ok := rv[3].([]*ast.ArgDef); ok {
 				args = x
 			}
 
@@ -712,17 +758,30 @@ func (p *Parser) SetupRules() {
 			return traits
 		})
 
+	hasType := r.Fs(
+		r.Seq(skip, sym(":"), declType),
+		func(rv []RuleValue) RuleValue {
+			return rv[2]
+		})
+
 	has := r.Fs(
-		r.Seq(kw("has"), ws, ivar, r.Maybe(hasTraits)),
+		r.Seq(kw("has"), ws, ivar, r.Maybe(hasType), r.Maybe(hasTraits)),
 		func(rv []RuleValue) RuleValue {
 			var traits []string
 
-			if x, ok := rv[3].([]string); ok {
+			if x, ok := rv[4].([]string); ok {
 				traits = x
+			}
+
+			var typ *ast.Type
+
+			if x, ok := rv[3].(*ast.Type); ok {
+				typ = x
 			}
 
 			return &ast.Has{
 				Variable: rv[2].(string),
+				Type:     typ,
 				Traits:   traits,
 			}
 		})
@@ -772,7 +831,9 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	stmt.Rule = r.Or(comment, importR, class, def, has,
+	stmt.Rule = r.Or(
+		packageR,
+		comment, importR, class, def, gdef, has,
 		ifr, while,
 		attrAssign, assign, inc, dec,
 		expr)
@@ -792,4 +853,6 @@ func (p *Parser) SetupRules() {
 				return &ast.Block{Expressions: convert(blk)}
 			}
 		})
+
+	p.rootG = p.root
 }

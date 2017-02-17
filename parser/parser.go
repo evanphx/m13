@@ -11,8 +11,9 @@ import (
 type Parser struct {
 	source string
 
-	root Rule
-	expr Rule
+	root  Rule
+	rootG Rule
+	expr  Rule
 
 	applyDepth int
 }
@@ -42,10 +43,18 @@ func (s *NodeStack) Pop() ast.Node {
 }
 
 func (p *Parser) Parse() (ast.Node, error) {
+	return p.parseFrom(p.root)
+}
+
+func (p *Parser) ParseG() (ast.Node, error) {
+	return p.parseFrom(p.rootG)
+}
+
+func (p *Parser) parseFrom(r Rule) (ast.Node, error) {
 	ml := &markingReader{r: strings.NewReader(p.source)}
 
 	var lineNum int
-	v, ok := p.root.Match(ml)
+	v, ok := r.Match(ml)
 	if !ok {
 		lines := strings.Split(p.source, "\n")
 
