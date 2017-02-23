@@ -308,7 +308,7 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, 1, len(n.Args))
 
-		assert.Equal(t, "x", n.Args[0])
+		assert.Equal(t, "x", n.Args[0].Name)
 
 		v, ok := n.Expr.(*ast.Integer)
 		require.True(t, ok)
@@ -330,8 +330,8 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, 2, len(n.Args))
 
-		assert.Equal(t, "x", n.Args[0])
-		assert.Equal(t, "y", n.Args[1])
+		assert.Equal(t, "x", n.Args[0].Name)
+		assert.Equal(t, "y", n.Args[1].Name)
 
 		v, ok := n.Expr.(*ast.Integer)
 		require.True(t, ok)
@@ -354,7 +354,7 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, 1, len(n.Args))
 
-		assert.Equal(t, "x", n.Args[0])
+		assert.Equal(t, "x", n.Args[0].Name)
 
 		b, ok := n.Expr.(*ast.Block)
 		require.True(t, ok, fmt.Sprintf("%T", n.Expr))
@@ -382,7 +382,7 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, 1, len(n.Args))
 
-		assert.Equal(t, "x", n.Args[0])
+		assert.Equal(t, "x", n.Args[0].Name)
 
 		b, ok := n.Expr.(*ast.Block)
 		require.True(t, ok)
@@ -413,7 +413,7 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, 1, len(n.Args))
 
-		assert.Equal(t, "x", n.Args[0])
+		assert.Equal(t, "x", n.Args[0].Name)
 
 		b, ok := n.Expr.(*ast.Block)
 		require.True(t, ok)
@@ -443,7 +443,7 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, 1, len(n.Args))
 
-		assert.Equal(t, "x", n.Args[0])
+		assert.Equal(t, "x", n.Args[0].Name)
 
 		b, ok := n.Expr.(*ast.Block)
 		require.True(t, ok)
@@ -550,7 +550,7 @@ os.stdout().puts("hello m13");`
 		def, ok := tree.(*ast.Definition)
 		require.True(t, ok)
 
-		assert.Equal(t, "foo", def.Name)
+		assert.Equal(t, "foo", def.Name.Name)
 
 		assert.Equal(t, 0, len(def.Arguments))
 
@@ -572,7 +572,7 @@ os.stdout().puts("hello m13");`
 		def, ok := tree.(*ast.Definition)
 		require.True(t, ok)
 
-		assert.Equal(t, "foo", def.Name)
+		assert.Equal(t, "foo", def.Name.Name)
 
 		assert.Equal(t, 0, len(def.Arguments))
 
@@ -594,9 +594,10 @@ os.stdout().puts("hello m13");`
 		def, ok := tree.(*ast.Definition)
 		require.True(t, ok)
 
-		assert.Equal(t, "foo", def.Name)
+		assert.Equal(t, "foo", def.Name.Name)
 
-		assert.Equal(t, []string{"a", "b"}, def.Arguments)
+		assert.Equal(t, "a", def.Arguments[0].Name)
+		assert.Equal(t, "b", def.Arguments[1].Name)
 
 		blk, ok := def.Body.(*ast.Block)
 		require.True(t, ok)
@@ -616,9 +617,9 @@ os.stdout().puts("hello m13");`
 		def, ok := tree.(*ast.Definition)
 		require.True(t, ok)
 
-		assert.Equal(t, "foo", def.Name)
+		assert.Equal(t, "foo", def.Name.Name)
 
-		assert.Equal(t, []string{"a"}, def.Arguments)
+		assert.Equal(t, "a", def.Arguments[0].Name)
 
 		blk, ok := def.Body.(*ast.Block)
 		require.True(t, ok)
@@ -1083,6 +1084,7 @@ func TestRandomSnippits(t *testing.T) {
 		`a.b == c.d`,
 		`c.expect(3.^class.name) == "builtin.I64"`,
 		`a.b c, d`,
+		`c.expect(l.at(47))`,
 	}
 
 	for _, s := range snippits {
@@ -1354,7 +1356,7 @@ func TestMethodParses(t *testing.T) {
 
 		require.Equal(t, 1, len(l.Args))
 
-		assert.Equal(t, "x", l.Args[0])
+		assert.Equal(t, "x", l.Args[0].Name)
 	})
 
 	n.Meow()

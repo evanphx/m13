@@ -156,22 +156,35 @@ func DesugarAST(gn ast.Node) ast.Node {
 	return ast.Rewrite(gn, func(gn ast.Node) ast.Node {
 		switch n := gn.(type) {
 		case *ast.Import:
-			return &ast.Assign{
-				Name: n.Path[len(n.Path)-1],
-				Value: &ast.Call{
-					Receiver:   &ast.ScopeVar{Name: "LOADER"},
-					MethodName: "import",
-					Args: []ast.Node{
-						&ast.String{Value: strings.Join(n.Path, ".")},
+			if n.Relative {
+				return &ast.Assign{
+					Name: n.Path[len(n.Path)-1],
+					Value: &ast.Call{
+						Receiver:   &ast.ScopeVar{Name: "LOADER"},
+						MethodName: "import_relative",
+						Args: []ast.Node{
+							&ast.String{Value: strings.Join(n.Path, ".")},
+						},
 					},
-				},
+				}
+			} else {
+				return &ast.Assign{
+					Name: n.Path[len(n.Path)-1],
+					Value: &ast.Call{
+						Receiver:   &ast.ScopeVar{Name: "LOADER"},
+						MethodName: "import",
+						Args: []ast.Node{
+							&ast.String{Value: strings.Join(n.Path, ".")},
+						},
+					},
+				}
 			}
 		case *ast.Definition:
 			return &ast.UpCall{
 				Receiver:   &ast.Self{},
 				MethodName: "add_method",
 				Args: []ast.Node{
-					&ast.String{Value: n.Name},
+					&ast.String{Value: n.Name.Name},
 					&ast.Lambda{
 						Args: n.Arguments,
 						Expr: n.Body,

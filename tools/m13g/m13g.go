@@ -83,13 +83,28 @@ func gen(top ast.Node) {
 	tmpl.Execute(os.Stdout, &info)
 }
 
+var opChars = map[rune]string{
+	'_': "__",
+	'*': "_star",
+	'+': "_plus",
+	'-': "_minus",
+	'=': "_equal",
+	'<': "_lt",
+	'>': "_gt",
+}
+
 func cleanName(name string) string {
-	switch name {
-	case "<<":
-		return "append_op"
-	default:
-		return name
+	out := ""
+
+	for _, r := range name {
+		if s, ok := opChars[r]; ok {
+			out += s
+		} else {
+			out += string(r)
+		}
 	}
+
+	return out
 }
 
 type memberInfo struct {
@@ -102,31 +117,40 @@ type argumentInfo struct {
 
 type methodInfo struct {
 	Name      string
+	Aliases   []string
 	CleanName string
 	Arguments []argumentInfo
 	GoCode    string
 }
 
 type classInfo struct {
-	Name    string
-	Members []memberInfo
-	Methods []methodInfo
+	Name     string
+	Super    string
+	SelfType string
+	Members  []memberInfo
+	Methods  []methodInfo
 }
 
 var typeTemp = `
 {{$name := .Name}}
-type {{.Name}} struct {
-	{{range .Members}}
-		Object
+{{$self := .SelfType}}
 
-		{{.Name}} {{.Type}}
-	{{end}}
-}
+{{if .Super}}
+	type {{.Name}} {{.Super}}
+{{else}}
+	type {{.Name}} struct {
+		{{range .Members}}
+			Object
+
+			{{.Name}} {{.Type}}
+		{{end}}
+	}
+{{end}}
 
 {{range .Methods}}
 
 func meth{{$name}}{{.CleanName}}(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
-	self := recv.(*{{$name}})
+	self := recv.({{$self}})
 
 	{{range $index, $arg := .Arguments}}
 		{{.Name}} := args[{{$index}}].({{.Type}})
@@ -142,6 +166,9 @@ func init{{.Name}}(pkg *Package, cls *Class) {
 	{{range .Methods}}
 		cls.AddMethod(&MethodDescriptor{
 			Name: "{{.Name}}",
+			Aliases: []string{
+				{{range .Aliases}}"{{.}}"{{end}},
+			},
 			Signature: Signature{
 				Required: {{len .Arguments}},
 			},
@@ -187,9 +214,16 @@ func genClass(cls *ast.ClassDefinition) string {
 				})
 			}
 
+			var aliases []string
+
+			if st.Name.Operator != "" {
+				aliases = append(aliases, st.Name.Operator)
+			}
+
 			methods = append(methods, methodInfo{
-				Name:      st.Name,
-				CleanName: cleanName(st.Name),
+				Name:      st.Name.Name,
+				Aliases:   aliases,
+				CleanName: cleanName(st.Name.Name),
 				Arguments: args,
 				GoCode:    st.Body,
 			})
@@ -200,6 +234,13 @@ func genClass(cls *ast.ClassDefinition) string {
 		Name:    cls.Name,
 		Members: members,
 		Methods: methods,
+	}
+
+	if cls.Super != nil {
+		info.Super = cls.Super.Name
+		info.SelfType = cls.Name
+	} else {
+		info.SelfType = "*" + cls.Name
 	}
 
 	tmpl, err := template.New("class").Parse(typeTemp)

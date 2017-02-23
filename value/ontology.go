@@ -97,6 +97,7 @@ func (r *Registry) Boot() error {
 	initList(pkg, r.List)
 	initIO(pkg, r.IO)
 	initString(pkg, r.String)
+	initI64(pkg, r.I64Class)
 
 	initObjectMirror(r.Mirror)
 	initPackageMirror(pkg, pm)

@@ -91,6 +91,13 @@ func initPackageMirror(r *Package, cls *Class) {
 				return nil, err
 			}
 
+			pm.p.Class(env).AddMethod(&MethodDescriptor{
+				Name: name.String,
+				Func: func(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
+					return nc, nil
+				},
+			})
+
 			return nc, nil
 		},
 	})

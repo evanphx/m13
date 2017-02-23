@@ -21,6 +21,7 @@ type Method struct {
 type Package struct {
 	name    string
 	path    string
+	relbase string
 	files   []string
 	trees   []ast.Node
 	methods []*Method
@@ -35,8 +36,9 @@ func Load(path string) (*Package, error) {
 	name := filepath.Base(path)
 
 	lp := &Package{
-		name: name,
-		path: path,
+		name:    name,
+		path:    path,
+		relbase: path,
 	}
 
 	for _, file := range files {
@@ -62,8 +64,9 @@ func Load(path string) (*Package, error) {
 
 func LoadFile(path string) (*Package, error) {
 	lp := &Package{
-		name: "main",
-		path: path,
+		name:    "main",
+		path:    path,
+		relbase: filepath.Dir(path),
 	}
 
 	lp.files = append(lp.files, path)
@@ -83,7 +86,7 @@ func LoadFile(path string) (*Package, error) {
 func (lp *Package) scanForMethods(tree ast.Node) {
 	if d, ok := tree.(*ast.Definition); ok {
 		lp.methods = append(lp.methods, &Method{
-			Name: d.Name,
+			Name: d.Name.Name,
 			Def:  d,
 		})
 
@@ -94,7 +97,7 @@ func (lp *Package) scanForMethods(tree ast.Node) {
 		for _, node := range blk.Expressions {
 			if d, ok := node.(*ast.Definition); ok {
 				lp.methods = append(lp.methods, &Method{
-					Name: d.Name,
+					Name: d.Name.Name,
 					Def:  d,
 				})
 			}
@@ -114,6 +117,7 @@ func (lp *Package) Exec(ctx context.Context, env value.Env, r *value.Registry) (
 	lo := &Loader{}
 	lo.SetClass(cls)
 	lo.Search = []string{"lib"}
+	lo.RelBase = lp.relbase
 
 	ctx = value.SetScoped(ctx, "LOADER", lo)
 	ctx = value.SetScoped(ctx, "stdout", value.NewIO(env, os.Stdout))
@@ -176,7 +180,8 @@ func (lp *Package) Exec(ctx context.Context, env value.Env, r *value.Registry) (
 type Loader struct {
 	value.Object
 
-	Search []string
+	RelBase string
+	Search  []string
 }
 
 func Init(pkg *value.Package, r *value.Registry) {
@@ -211,6 +216,35 @@ func Init(pkg *value.Package, r *value.Registry) {
 			}
 
 			return nil, fmt.Errorf("Unable to find %s to import", str.String)
+		},
+	})
+
+	cls.AddMethod(&value.MethodDescriptor{
+		Name: "import_relative",
+		Signature: value.Signature{
+			Required: 1,
+		},
+		Func: func(ctx context.Context, env value.Env, recv value.Value, args []value.Value) (value.Value, error) {
+			lo := recv.(*Loader)
+			str := args[0].(*value.String)
+
+			path := filepath.Join(lo.RelBase, str.String)
+
+			stat, err := os.Stat(path)
+			if err != nil {
+				return nil, err
+			}
+
+			if !stat.IsDir() {
+				return nil, fmt.Errorf("Unable to find %s to import", str.String)
+			}
+
+			lp, err := Load(path)
+			if err != nil {
+				return nil, err
+			}
+
+			return lp.Exec(ctx, env, r)
 		},
 	})
 }

@@ -1,0 +1,9 @@
+class Simple {
+  def args(a,b,c) {
+    list = []
+    list << a
+    list << b
+    list << c
+    list
+  }
+}

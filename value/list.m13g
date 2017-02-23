@@ -24,4 +24,8 @@ class List {
 
     return self, nil
   }
+
+  gdef at(idx : I64) {
+    return self.data[idx], nil
+  }
 }

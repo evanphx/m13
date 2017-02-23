@@ -67,9 +67,12 @@ func (p *Parser) SetupRules() {
 
 			if r == 'x' {
 				base = 16
-			} else {
+			} else if isDigit(r) {
 				buf.WriteRune('0')
 				buf.WriteRune(r)
+			} else {
+				rs.UnreadRune()
+				return &ast.Integer{Value: int64(0)}, true
 			}
 		} else {
 			buf.WriteRune(r)
@@ -330,7 +333,9 @@ func (p *Parser) SetupRules() {
 		}),
 	)
 
-	methodName := r.Or(r.Re("[a-zA-Z_][a-zA-Z0-9_]*"), opName)
+	selector := r.Re("[a-zA-Z_][a-zA-Z0-9_]*")
+
+	methodName := r.Or(selector, opName)
 
 	dmc := r.F(r.Seq(r.S("."), methodName), r.Nth(1))
 	dmuc := r.F(r.Seq(r.S(".^"), methodName), r.Nth(1))
@@ -670,10 +675,13 @@ func (p *Parser) SetupRules() {
 		})
 
 	importR := r.Fs(
-		r.Seq(kw("import"), ws, importPath),
+		r.Seq(kw("import"), ws, r.Maybe(r.S(".")), importPath),
 		func(rv []RuleValue) RuleValue {
+			_, rel := rv[2].(string)
+
 			return &ast.Import{
-				Path: rv[2].([]string),
+				Path:     rv[3].([]string),
+				Relative: rel,
 			}
 		})
 
@@ -685,10 +693,22 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
+	defMethodName := r.Or(
+		r.Fs(r.Seq(selector, r.S("|"), opName), func(rv []RuleValue) RuleValue {
+			return &ast.MethodName{
+				Name:     rv[0].(string),
+				Operator: rv[2].(string),
+			}
+		}),
+		r.F(selector, func(rv RuleValue) RuleValue {
+			return &ast.MethodName{Name: rv.(string)}
+		}),
+	)
+
 	gBody := r.GoCode("gBody", 0)
 
 	gdef := r.Fs(
-		r.Seq(kw("gdef"), ws, methodName, r.Maybe(argDefList), skip, gBody),
+		r.Seq(kw("gdef"), ws, defMethodName, r.Maybe(argDefList), skip, gBody),
 		func(rv []RuleValue) RuleValue {
 			var args []*ast.ArgDef
 
@@ -697,14 +717,14 @@ func (p *Parser) SetupRules() {
 			}
 
 			return &ast.GoDefinition{
-				Name:      rv[2].(string),
+				Name:      rv[2].(*ast.MethodName),
 				Arguments: args,
 				Body:      rv[5].(string),
 			}
 		})
 
 	def := r.Fs(
-		r.Seq(kw("def"), ws, methodName, r.Maybe(argDefList), skip, braceBody),
+		r.Seq(kw("def"), ws, defMethodName, r.Maybe(argDefList), skip, braceBody),
 		func(rv []RuleValue) RuleValue {
 			var args []*ast.ArgDef
 
@@ -713,7 +733,7 @@ func (p *Parser) SetupRules() {
 			}
 
 			return &ast.Definition{
-				Name:      rv[2].(string),
+				Name:      rv[2].(*ast.MethodName),
 				Arguments: args,
 				Body:      rv[5].(ast.Node),
 			}
@@ -727,12 +747,25 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	class := r.Fs(
-		r.Seq(kw("class"), ws, word, skip, classBody),
+	classSuper := r.Fs(
+		r.Seq(sym(":"), skip, declType, skip),
 		func(rv []RuleValue) RuleValue {
+			return rv[2]
+		})
+
+	class := r.Fs(
+		r.Seq(kw("class"), ws, word, ws, r.Maybe(classSuper), classBody),
+		func(rv []RuleValue) RuleValue {
+			var super *ast.Type
+
+			if s, ok := rv[4].(*ast.Type); ok {
+				super = s
+			}
+
 			return &ast.ClassDefinition{
-				Name: rv[2].(string),
-				Body: rv[4].(ast.Node),
+				Name:  rv[2].(string),
+				Body:  rv[5].(ast.Node),
+				Super: super,
 			}
 		})
 

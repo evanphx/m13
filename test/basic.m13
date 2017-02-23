@@ -1,7 +1,19 @@
 import test
+import .basic
 
 test.spec "Basic operations", s => {
   s.it "can read the class of a number", c => {
     c.expect(3.^class.name) == "builtin.I64"
+  }
+}
+
+test.spec "Arguments", s => {
+  s.it "passes through arguments", c => {
+    x = basic.Simple.new()
+    l = x.args(1,2,3)
+
+    c.expect(l.at(0)) == 1
+    c.expect(l.at(1)) == 2
+    c.expect(l.at(2)) == 3
   }
 }

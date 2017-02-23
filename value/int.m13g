@@ -1,0 +1,27 @@
+package value
+
+class I64 : int64 {
+  gdef equal|==(o : I64) {
+    if self == o {
+      return env.True(), nil
+    }
+
+    return env.False(), nil
+  }
+
+  gdef add|+(o : I64) {
+    return self + o, nil
+  }
+
+  gdef less_than|<(o : I64) {
+    if self < o {
+      return env.True(), nil
+    }
+
+    return env.False(), nil
+  }
+
+  gdef inc|++() {
+    return self + 1, nil
+  }
+}

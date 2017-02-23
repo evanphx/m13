@@ -137,7 +137,8 @@ func (v *Block) NodeType() string {
 }
 
 type Import struct {
-	Path []string
+	Path     []string
+	Relative bool
 }
 
 func (v *Import) NodeType() string {
@@ -180,8 +181,13 @@ func (a *ArgDef) NodeType() string {
 	return "argdef"
 }
 
+type MethodName struct {
+	Name     string
+	Operator string
+}
+
 type GoDefinition struct {
-	Name      string
+	Name      *MethodName
 	Arguments []*ArgDef
 	Body      string
 }
@@ -191,7 +197,7 @@ func (v *GoDefinition) NodeType() string {
 }
 
 type Definition struct {
-	Name      string
+	Name      *MethodName
 	Arguments []*ArgDef
 	Body      Node
 }
@@ -201,8 +207,9 @@ func (v *Definition) NodeType() string {
 }
 
 type ClassDefinition struct {
-	Name string
-	Body Node
+	Name  string
+	Body  Node
+	Super *Type
 }
 
 func (v *ClassDefinition) NodeType() string {

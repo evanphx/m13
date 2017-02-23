@@ -404,7 +404,14 @@ func TestGen(t *testing.T) {
 		require.NoError(t, err)
 
 		tree := &ast.Lambda{
-			Args: []string{"a", "b"},
+			Args: []*ast.ArgDef{
+				{
+					Name: "a",
+				},
+				{
+					Name: "b",
+				},
+			},
 			Expr: &ast.Op{
 				Name: "+",
 				Left: &ast.Op{

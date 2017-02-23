@@ -40,6 +40,18 @@ func methListeach(ctx context.Context, env Env, recv Value, args []Value) (Value
 	return recv, nil
 }
 
+func methListat(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
+	self := recv.(*List)
+
+	idx := args[0].(I64)
+
+	{
+		return self.data[idx], nil
+	}
+
+	return recv, nil
+}
+
 func initList(pkg *Package, cls *Class) {
 
 	cls.AddMethod(&MethodDescriptor{
@@ -56,6 +68,14 @@ func initList(pkg *Package, cls *Class) {
 			Required: 1,
 		},
 		Func: methListeach,
+	})
+
+	cls.AddMethod(&MethodDescriptor{
+		Name: "at",
+		Signature: Signature{
+			Required: 1,
+		},
+		Func: methListat,
 	})
 
 }

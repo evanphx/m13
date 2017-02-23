@@ -14,7 +14,7 @@ class Expectation {
     @object = obj
   }
 
-  def ==(other) {
+  def equal|==(other) {
     if @object == object {
       1
     } else {
