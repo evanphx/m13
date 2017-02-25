@@ -180,17 +180,36 @@ func DesugarAST(gn ast.Node) ast.Node {
 				}
 			}
 		case *ast.Definition:
-			return &ast.UpCall{
-				Receiver:   &ast.Self{},
-				MethodName: "add_method",
-				Args: []ast.Node{
-					&ast.String{Value: n.Name.Name},
-					&ast.Lambda{
-						Args: n.Arguments,
-						Expr: n.Body,
+			elements := []ast.Node{}
+
+			elements = append(elements,
+				&ast.UpCall{
+					Receiver:   &ast.Self{},
+					MethodName: "add_method",
+					Args: []ast.Node{
+						&ast.String{Value: n.Name.Name},
+						&ast.Lambda{
+							Args: n.Arguments,
+							Expr: n.Body,
+						},
 					},
 				},
+			)
+
+			if n.Name.Operator != "" {
+				elements = append(elements,
+					&ast.UpCall{
+						Receiver:   &ast.Self{},
+						MethodName: "alias_method",
+						Args: []ast.Node{
+							&ast.String{Value: n.Name.Name},
+							&ast.String{Value: n.Name.Operator},
+						},
+					},
+				)
 			}
+
+			return &ast.Block{Expressions: elements}
 		case *ast.ClassDefinition:
 			return &ast.Assign{
 				Name: n.Name,
@@ -469,6 +488,24 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 		}
 
 		g.sp--
+	case *ast.Map:
+		mapReg := g.sp
+		g.a(insn.Builder.NewMap(mapReg))
+
+		for _, pair := range n.Elements {
+			g.nextReg()
+			keySp := g.sp
+
+			g.GenerateScoped(pair.Key, scope)
+
+			g.nextReg()
+
+			g.GenerateScoped(pair.Value, scope)
+
+			g.a(insn.Builder.SetMap(mapReg, keySp))
+
+			g.sp -= 2
+		}
 	case *ast.IVar:
 		idx := g.findLiteral(n.Name)
 
@@ -485,7 +522,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 		g.a(insn.Builder.SetIvar(g.sp, idx))
 
 	default:
-		return fmt.Errorf("Unhandled ast type: %T", gn)
+		return fmt.Errorf("Unhandled ast type: %T (%#v)", gn, gn)
 	}
 
 	return nil

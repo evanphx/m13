@@ -1,0 +1,16 @@
+package value
+
+import context
+
+class Map {
+  has @entries : *mapEntries
+
+  gdef get|[](key) {
+    val, ok := self.Get(key)
+    if ok {
+      return val, nil
+    }
+
+    return env.Nil(), nil
+  }
+}

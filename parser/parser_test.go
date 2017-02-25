@@ -1066,6 +1066,160 @@ os.stdout().puts("hello m13");`
 
 		assert.Equal(t, 0, len(list.Elements))
 	})
+
+	n.It("parses an list with an element", func() {
+		src := `[1]`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		list, ok := tree.(*ast.List)
+		require.True(t, ok)
+
+		assert.Equal(t, 1, len(list.Elements))
+		assert.Equal(t, int64(1), list.Elements[0].(*ast.Integer).Value)
+	})
+
+	n.It("parses an list with a elements", func() {
+		src := `[1,2]`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		list, ok := tree.(*ast.List)
+		require.True(t, ok)
+
+		assert.Equal(t, 2, len(list.Elements))
+		assert.Equal(t, int64(1), list.Elements[0].(*ast.Integer).Value)
+		assert.Equal(t, int64(2), list.Elements[1].(*ast.Integer).Value)
+	})
+
+	n.It("parses an empty map", func() {
+		src := `{}`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		list, ok := tree.(*ast.Map)
+		require.True(t, ok)
+
+		assert.Equal(t, 0, len(list.Elements))
+	})
+
+	n.It("parses an map with a pair", func() {
+		src := `{"foo": 1}`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		list, ok := tree.(*ast.Map)
+		require.True(t, ok)
+
+		assert.Equal(t, 1, len(list.Elements))
+
+		assert.Equal(t, "foo", list.Elements[0].Key.(*ast.String).Value)
+		assert.Equal(t, int64(1), list.Elements[0].Value.(*ast.Integer).Value)
+	})
+
+	n.It("parses an map with a lambda", func() {
+		src := `{"foo": => { 1 } }`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		list, ok := tree.(*ast.Map)
+		require.True(t, ok)
+
+		assert.Equal(t, 1, len(list.Elements))
+
+		assert.Equal(t, "foo", list.Elements[0].Key.(*ast.String).Value)
+		lam := list.Elements[0].Value.(*ast.Lambda)
+
+		assert.Equal(t, int64(1), lam.Expr.(*ast.Block).Expressions[0].(*ast.Integer).Value)
+	})
+
+	n.It("parses an map key that is a simple word as a string", func() {
+		src := `{foo: 1}`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		list, ok := tree.(*ast.Map)
+		require.True(t, ok)
+
+		assert.Equal(t, 1, len(list.Elements))
+
+		assert.Equal(t, "foo", list.Elements[0].Key.(*ast.String).Value)
+		assert.Equal(t, int64(1), list.Elements[0].Value.(*ast.Integer).Value)
+	})
+
+	n.It("parses an expression with parens around it", func() {
+		src := `(1)`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		assert.Equal(t, int64(1), tree.(*ast.Integer).Value)
+	})
+
+	n.It("parses an map key that is a paren expr", func() {
+		src := `{(foo): 1}`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		list, ok := tree.(*ast.Map)
+		require.True(t, ok)
+
+		assert.Equal(t, 1, len(list.Elements))
+
+		assert.Equal(t, "foo", list.Elements[0].Key.(*ast.Variable).Name)
+		assert.Equal(t, int64(1), list.Elements[0].Value.(*ast.Integer).Value)
+	})
+
+	n.It("parses access with square brackets", func() {
+		src := `foo["bar"]`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		call, ok := tree.(*ast.Call)
+		require.True(t, ok)
+
+		assert.Equal(t, "[]", call.MethodName)
+
+		require.Equal(t, 1, len(call.Args))
+
+		assert.Equal(t, "bar", call.Args[0].(*ast.String).Value)
+	})
+
 	n.Meow()
 }
 

@@ -84,6 +84,10 @@ func (vm *VM) ListClass() *value.Class {
 	return vm.registry.List
 }
 
+func (vm *VM) MapClass() *value.Class {
+	return vm.registry.Map
+}
+
 func (vm *VM) IOClass() *value.Class {
 	return vm.registry.IO
 }
@@ -216,6 +220,10 @@ func (vm *VM) ExecuteContext(gctx context.Context, ctx value.ExecuteContext) (va
 			reg[i.R0()] = value.NewList(vm, i.R1())
 		case insn.ListAppend:
 			reg[i.R0()].(*value.List).Append(reg[i.R1()])
+		case insn.NewMap:
+			reg[i.R0()] = value.NewMap(vm)
+		case insn.SetMap:
+			vm.setMap(reg[i.R0()], reg[i.R1()], reg[i.R1()+1])
 		case insn.SetIvar:
 			no := ctx.Self.(*value.NativeObject)
 			no.Ivars[no.Class(vm).Ivars[ctx.Code.Literals[i.R1()]]] = reg[i.R0()]
@@ -277,4 +285,10 @@ func (vm *VM) getScoped(ctx context.Context, name string) value.Value {
 	}
 
 	return vm.Nil()
+}
+
+func (vm *VM) setMap(map_, key, val value.Value) {
+	m := map_.(*value.Map)
+
+	m.Set(key, val)
 }

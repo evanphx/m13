@@ -592,20 +592,84 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
-	list := r.Fs(
-		r.Seq(sym("["), sym("]")),
+	squareBrackets := r.Fs(
+		r.Seq(expr, sym("["), argList, sym("]")),
 		func(rv []RuleValue) RuleValue {
+			return &ast.Call{
+				Receiver:   rv[0].(ast.Node),
+				MethodName: "[]",
+				Args:       convert(rv[2].([]RuleValue)),
+			}
+		})
+
+	list := r.Or(
+		r.Fs(r.Seq(sym("["), sym("]")), func(rv []RuleValue) RuleValue {
 			return &ast.List{}
+		}),
+		r.Fs(r.Seq(sym("["), argList, sym("]")), func(rv []RuleValue) RuleValue {
+			return &ast.List{Elements: convert(rv[1].([]RuleValue))}
+		}),
+	)
+
+	pairKey := r.Or(
+		r.F(word, func(rv RuleValue) RuleValue {
+			return &ast.String{Value: rv.(string)}
+		}),
+		expr,
+	)
+
+	pair := r.Fs(
+		r.Seq(pairKey, skip, sym(":"), expr),
+		func(rv []RuleValue) RuleValue {
+			return &ast.Pair{
+				Key:   rv[0].(ast.Node),
+				Value: rv[3].(ast.Node),
+			}
+		})
+
+	anotherPair := r.F(r.Seq(r.S(","), skip, pair), r.Nth(2))
+
+	mapList := r.Fs(
+		r.Seq(pair, r.Star(anotherPair)),
+		func(rv []RuleValue) RuleValue {
+			var pairs []*ast.Pair
+
+			pairs = append(pairs, rv[0].(*ast.Pair))
+
+			if right, ok := rv[1].([]RuleValue); ok {
+				for _, pair := range right {
+					pairs = append(pairs, pair.(*ast.Pair))
+				}
+			}
+
+			return pairs
+		})
+
+	map_ := r.Fs(
+		r.Seq(sym("{"), r.Maybe(mapList), skip, sym("}")),
+		func(rv []RuleValue) RuleValue {
+			if body, ok := rv[1].([]*ast.Pair); ok {
+				return &ast.Map{body}
+			}
+
+			return &ast.Map{}
+		})
+
+	parenExpr := r.Fs(
+		r.Seq(sym("("), expr, skip, sym(")")),
+		func(rv []RuleValue) RuleValue {
+			return rv[1]
 		})
 
 	expr.Rules = []Rule{
 		lambdaN, lambda1, lambda0,
 		upcallN, upcall0, upAttrAccess,
 		npcallN,
-		op,
-		list,
+		op, squareBrackets,
+		list, map_,
 		primcallN, primcall0, invoke,
 		attrAccess, prim,
+		parenExpr,
 	}
 
 	stmt := r.Ref("stmt")

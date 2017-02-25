@@ -56,6 +56,10 @@ func (c *Class) AddMethod(cfg *MethodDescriptor) {
 	}
 }
 
+func (c *Class) AliasMethod(from, to string) {
+	c.Methods[to] = c.Methods[from]
+}
+
 func (c *Class) AddClassMethod(cfg *MethodDescriptor) {
 	c.class.AddMethod(cfg)
 }
@@ -220,6 +224,22 @@ func initClassMirror(r *Package, cls *Class) {
 			})
 
 			return name, nil
+		},
+	})
+
+	cls.AddMethod(&MethodDescriptor{
+		Name: "alias_method",
+		Signature: Signature{
+			Required: 2,
+		},
+		Func: func(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
+			rc := recv.(*ClassMirror).cls
+			from := args[0].(*String)
+			to := args[1].(*String)
+
+			rc.AliasMethod(from.String, to.String)
+
+			return from, nil
 		},
 	})
 }

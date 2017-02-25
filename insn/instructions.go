@@ -26,6 +26,8 @@ const (
 	ListAppend   Op = 19
 	GetIvar      Op = 20
 	SetIvar      Op = 21
+	NewMap       Op = 22
+	SetMap       Op = 23
 )
 
 type Instruction int64
@@ -301,6 +303,25 @@ func (_ BuilderType) SetIvar(src, lit int) Instruction {
 	out |= Instruction(SetIvar)
 	out |= (Instruction(src) << Reg0Shift)
 	out |= (Instruction(lit) << Reg1Shift)
+
+	return out
+}
+
+func (_ BuilderType) NewMap(reg int) Instruction {
+	var out Instruction
+
+	out |= Instruction(NewMap)
+	out |= (Instruction(reg) << Reg0Shift)
+
+	return out
+}
+
+func (_ BuilderType) SetMap(reg, base int) Instruction {
+	var out Instruction
+
+	out |= Instruction(SetMap)
+	out |= (Instruction(reg) << Reg0Shift)
+	out |= (Instruction(base) << Reg1Shift)
 
 	return out
 }

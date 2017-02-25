@@ -1,0 +1,15 @@
+import test
+
+test.spec "Map operations", s => {
+  s.it "creates a map from a literal", c => {
+    lit = { foo: 1, bar: 2 }
+
+    c.expect(lit.^class.name) == "builtin.Map"
+  }
+
+  s.it "can lookup a value from the key", c => {
+    lit = { foo: 1, bar: 2 }
+
+    c.expect(lit["foo"]) == 1
+  }
+}

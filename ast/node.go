@@ -313,6 +313,22 @@ func (l *List) NodeType() string {
 	return "list"
 }
 
+type Pair struct {
+	Key, Value Node
+}
+
+func (p *Pair) NodeType() string {
+	return "pair"
+}
+
+type Map struct {
+	Elements []*Pair
+}
+
+func (l *Map) NodeType() string {
+	return "map"
+}
+
 type Type struct {
 	Name string
 }

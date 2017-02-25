@@ -36,6 +36,7 @@ type Registry struct {
 	String    *Class
 	List      *Class
 	IO        *Class
+	Map       *Class
 }
 
 func NewRegistry() *Registry {

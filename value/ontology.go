@@ -90,6 +90,7 @@ func (r *Registry) Boot() error {
 	r.Lambda = r.NewClass(pkg, "Lambda", obj)
 
 	r.List = r.NewClass(pkg, "List", obj)
+	r.Map = r.NewClass(pkg, "Map", obj)
 
 	r.IO = r.NewClass(pkg, "IO", obj)
 
@@ -98,6 +99,7 @@ func (r *Registry) Boot() error {
 	initIO(pkg, r.IO)
 	initString(pkg, r.String)
 	initI64(pkg, r.I64Class)
+	initMap(pkg, r.Map)
 
 	initObjectMirror(r.Mirror)
 	initPackageMirror(pkg, pm)

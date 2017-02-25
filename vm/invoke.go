@@ -48,8 +48,6 @@ func (vm *VM) checkArity(m *value.Method, args []value.Value) error {
 }
 
 func (vm *VM) callN(ctx context.Context, recv value.Value, args []value.Value, op string) (value.Value, error) {
-	fmt.Printf("op: %s\n", op)
-
 	if t, ok := recv.Class(vm).LookupMethod(op); ok {
 		if err := vm.checkArity(t, args); err != nil {
 			return nil, err

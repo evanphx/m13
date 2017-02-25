@@ -15,6 +15,10 @@ func MakeI64(i int64) Value {
 	return I64(i)
 }
 
+func (i I64) Hash() uint64 {
+	return uint64(i)
+}
+
 // m13 parent=Integer
 type BigInt struct {
 	I *big.Int

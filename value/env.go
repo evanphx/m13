@@ -8,6 +8,7 @@ type Env interface {
 	False() Value
 	MustFindClass(name string) *Class
 	ArgumentError(expected, received int) (Value, error)
+	TypeError(value Value, expected string) (Value, error)
 	Class() *Class
 	ObjectClass() *Class
 	I64Class() *Class
@@ -16,6 +17,7 @@ type Env interface {
 	StringClass() *Class
 	NewString(str string) *String
 	ListClass() *Class
+	MapClass() *Class
 	IOClass() *Class
 	ExecuteContext(context.Context, ExecuteContext) (Value, error)
 	InvokeLambda(ctx context.Context, lamb *Lambda, args []Value) (Value, error)

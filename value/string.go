@@ -1,11 +1,18 @@
 package value
 
 import "context"
+import "hash/fnv"
 
 // m13
 type String struct {
 	Object
 	String string
+}
+
+func (s *String) Hash() uint64 {
+	h := fnv.New64()
+	h.Write([]byte(s.String))
+	return h.Sum64()
 }
 
 // m13 name=+
@@ -25,7 +32,10 @@ func initString(r *Package, cls *Class) {
 		},
 		Func: func(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
 			s1 := recv.(*String)
-			s2 := args[0].(*String)
+			s2, ok := args[0].(*String)
+			if !ok {
+				return env.False(), nil
+			}
 
 			if s1.String == s2.String {
 				return env.True(), nil
