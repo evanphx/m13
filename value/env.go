@@ -16,6 +16,7 @@ type Env interface {
 	LambdaClass() *Class
 	StringClass() *Class
 	NewString(str string) *String
+	InternString(str string) *String
 	ListClass() *Class
 	MapClass() *Class
 	IOClass() *Class

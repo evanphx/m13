@@ -355,13 +355,14 @@ func (p *Parser) SetupRules() {
 			return &ast.Call{
 				Receiver:   rv[0].(ast.Node),
 				MethodName: rv[1].(string),
+				Args:       &ast.Args{},
 			}
 		})
 
-	anotherArg := r.F(r.Seq(r.S(","), skip, expr), r.Nth(2))
+	posAnotherArg := r.F(r.Seq(r.S(","), skip, expr), r.Nth(2))
 
-	argList := r.Fs(
-		r.Seq(expr, skip, r.Star(anotherArg)),
+	posArgList := r.Fs(
+		r.Seq(expr, skip, r.Star(posAnotherArg)),
 		func(rv []RuleValue) RuleValue {
 			if right, ok := rv[2].([]RuleValue); ok {
 				return append([]RuleValue{rv[0]}, right...)
@@ -370,6 +371,71 @@ func (p *Parser) SetupRules() {
 			}
 		})
 
+	namedArg := r.Fs(
+		r.Seq(word, sym("="), expr),
+		func(rv []RuleValue) RuleValue {
+			return &ast.NamedArg{
+				Name:  rv[0].(string),
+				Value: rv[2].(ast.Node),
+			}
+		})
+
+	posOrNamedArg := r.Or(namedArg, expr)
+	posOrNamedAnother := r.F(r.Seq(r.S(","), skip, posOrNamedArg), r.Nth(2))
+
+	posAndNamedArgList := r.Fs(
+		r.Seq(posOrNamedArg, skip, r.Star(posOrNamedAnother)),
+		func(rv []RuleValue) RuleValue {
+			if right, ok := rv[2].([]RuleValue); ok {
+				return append(rv[:1], right...)
+			} else {
+				return rv[:1]
+			}
+		})
+
+	argList := r.F(posAndNamedArgList, func(rv RuleValue) RuleValue {
+		args := &ast.Args{
+			Args: convert(rv.([]RuleValue)),
+		}
+
+		return args
+	})
+
+	/*
+		oldargList := r.Or(
+			r.Fs(
+				r.Seq(posArgList, r.S(","), namedArgList),
+				func(rv []RuleValue) RuleValue {
+					var named []*ast.NamedArg
+
+					for _, arg := range rv[2].([]RuleValue) {
+						named = append(named, arg.(*ast.NamedArg))
+					}
+
+					return &ast.Args{
+						Args:      convert(rv[0].([]RuleValue)),
+						NamedArgs: named,
+					}
+				}),
+			r.F(namedArgList, func(rv RuleValue) RuleValue {
+				var named []*ast.NamedArg
+
+				for _, arg := range rv.([]RuleValue) {
+					named = append(named, arg.(*ast.NamedArg))
+				}
+
+				return &ast.Args{
+					NamedArgs: named,
+				}
+			}),
+			r.F(posArgList, func(rv RuleValue) RuleValue {
+				return &ast.Args{
+					Args: convert(rv.([]RuleValue)),
+				}
+			}),
+		)
+	*/
+
 	primcallN := r.Fs(
 		r.Seq(expr, dmc,
 			sym("("), argList, sym(")")),
@@ -377,7 +443,7 @@ func (p *Parser) SetupRules() {
 			return &ast.Call{
 				Receiver:   rv[0].(ast.Node),
 				MethodName: rv[1].(string),
-				Args:       convert(rv[3].([]RuleValue)),
+				Args:       rv[3].(*ast.Args),
 			}
 		})
 
@@ -387,7 +453,7 @@ func (p *Parser) SetupRules() {
 			return &ast.Call{
 				Receiver:   rv[0].(ast.Node),
 				MethodName: rv[1].(string),
-				Args:       convert(rv[3].([]RuleValue)),
+				Args:       rv[3].(*ast.Args),
 			}
 		})
 
@@ -427,14 +493,15 @@ func (p *Parser) SetupRules() {
 			func(rv []RuleValue) RuleValue {
 				return &ast.Invoke{
 					Var:  &ast.IVar{Name: rv[0].(string)},
-					Args: convert(rv[2].([]RuleValue)),
+					Args: rv[2].(*ast.Args),
 				}
 			}),
 		r.Fs(
 			r.Seq(ivar, sym("("), sym(")")),
 			func(rv []RuleValue) RuleValue {
 				return &ast.Invoke{
-					Var: &ast.IVar{Name: rv[0].(string)},
+					Var:  &ast.IVar{Name: rv[0].(string)},
+					Args: &ast.Args{},
 				}
 			}),
 		r.Fs(
@@ -442,14 +509,15 @@ func (p *Parser) SetupRules() {
 			func(rv []RuleValue) RuleValue {
 				return &ast.Invoke{
 					Var:  &ast.Variable{Name: rv[0].(string)},
-					Args: convert(rv[2].([]RuleValue)),
+					Args: rv[2].(*ast.Args),
 				}
 			}),
 		r.Fs(
 			r.Seq(word, sym("("), sym(")")),
 			func(rv []RuleValue) RuleValue {
 				return &ast.Invoke{
-					Var: &ast.Variable{Name: rv[0].(string)},
+					Var:  &ast.Variable{Name: rv[0].(string)},
+					Args: &ast.Args{},
 				}
 			}),
 	)
@@ -598,7 +666,7 @@ func (p *Parser) SetupRules() {
 			return &ast.Call{
 				Receiver:   rv[0].(ast.Node),
 				MethodName: "[]",
-				Args:       convert(rv[2].([]RuleValue)),
+				Args:       rv[2].(*ast.Args),
 			}
 		})
 
@@ -606,7 +674,7 @@ func (p *Parser) SetupRules() {
 		r.Fs(r.Seq(sym("["), sym("]")), func(rv []RuleValue) RuleValue {
 			return &ast.List{}
 		}),
-		r.Fs(r.Seq(sym("["), argList, sym("]")), func(rv []RuleValue) RuleValue {
+		r.Fs(r.Seq(sym("["), posArgList, sym("]")), func(rv []RuleValue) RuleValue {
 			return &ast.List{Elements: convert(rv[1].([]RuleValue))}
 		}),
 	)

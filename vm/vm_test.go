@@ -70,7 +70,7 @@ func TestVM(t *testing.T) {
 		vm, err := NewVM()
 		require.NoError(t, err)
 
-		val, err := vm.callN(context.TODO(), value.I64(3), []value.Value{value.I64(4)}, "+")
+		val, err := vm.callN(context.TODO(), value.I64(3), []value.Value{value.I64(4)}, &value.CallSite{Name: "+"})
 		require.NoError(t, err)
 
 		i, ok := val.(value.I64)
@@ -89,7 +89,7 @@ func TestVM(t *testing.T) {
 		ctx := value.ExecuteContext{
 			Code: &value.Code{
 				NumRegs:      2,
-				Literals:     []string{"+"},
+				Calls:        []*value.CallSite{{Name: "+"}},
 				Instructions: seq,
 			},
 		}
@@ -154,7 +154,7 @@ func TestVM(t *testing.T) {
 			Code: &value.Code{
 				NumRegs:      3,
 				Instructions: seq,
-				Literals:     []string{"<", "++"},
+				Calls:        []*value.CallSite{{Name: "<"}, {Name: "++"}},
 			},
 		}
 
@@ -219,7 +219,7 @@ func TestVM(t *testing.T) {
 				b.Call0(0, 0, 0),
 				b.Return(0),
 			},
-			Literals: []string{"++"},
+			Calls: []*value.CallSite{{Name: "++"}},
 		}
 
 		ctx := value.ExecuteContext{
@@ -261,7 +261,7 @@ func TestVM(t *testing.T) {
 				b.ReadRef(0, 0),
 				b.Return(0),
 			},
-			Literals: []string{"++"},
+			Calls: []*value.CallSite{{Name: "++"}},
 		}
 
 		ctx := value.ExecuteContext{

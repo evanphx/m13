@@ -10,19 +10,25 @@ import (
 )
 
 type Generator struct {
-	seq []insn.Instruction
+	env  value.Env
+	name string
+	seq  []insn.Instruction
 
 	sp     int
 	maxReg int
 
-	scope    *ast.Scope
-	literals []string
+	scope *ast.Scope
+
+	calls   []*value.CallSite
+	strings []*value.String
 
 	subSequences []*Generator
+
+	signature *value.Signature
 }
 
-func NewGenerator() (*Generator, error) {
-	g := &Generator{}
+func NewGenerator(env value.Env, name string) (*Generator, error) {
+	g := &Generator{env: env, name: name}
 
 	return g, nil
 }
@@ -41,18 +47,30 @@ func (g *Generator) a(i insn.Instruction) {
 	g.seq = append(g.seq, i)
 }
 
-func (g *Generator) findLiteral(l string) int {
-	for i, x := range g.literals {
-		if x == l {
+func (g *Generator) findString(l string) int {
+	for i, x := range g.strings {
+		if x.String == l {
 			return i
 		}
 	}
 
-	i := len(g.literals)
+	i := len(g.strings)
 
-	g.literals = append(g.literals, l)
+	g.strings = append(g.strings, g.env.InternString(l))
 
 	return i
+}
+
+func (g *Generator) addCallsite(l string) (*value.CallSite, int) {
+	cs := &value.CallSite{
+		Name: l,
+	}
+
+	i := len(g.calls)
+
+	g.calls = append(g.calls, cs)
+
+	return cs, i
 }
 
 func (g *Generator) Reserve(slot int) {
@@ -107,11 +125,14 @@ func (g *Generator) Code() (*value.Code, error) {
 	p.Optimize(g.seq)
 
 	code := &value.Code{
+		Name:         g.name,
 		NumRegs:      g.maxReg + 1,
 		NumRefs:      len(g.scope.Refs),
 		Instructions: g.seq,
-		Literals:     g.literals,
+		Strings:      g.strings,
+		Calls:        g.calls,
 		SubCode:      subs,
+		Signature:    g.signature,
 	}
 
 	return code, nil
@@ -162,8 +183,10 @@ func DesugarAST(gn ast.Node) ast.Node {
 					Value: &ast.Call{
 						Receiver:   &ast.ScopeVar{Name: "LOADER"},
 						MethodName: "import_relative",
-						Args: []ast.Node{
-							&ast.String{Value: strings.Join(n.Path, ".")},
+						Args: &ast.Args{
+							Args: []ast.Node{
+								&ast.String{Value: strings.Join(n.Path, ".")},
+							},
 						},
 					},
 				}
@@ -173,8 +196,10 @@ func DesugarAST(gn ast.Node) ast.Node {
 					Value: &ast.Call{
 						Receiver:   &ast.ScopeVar{Name: "LOADER"},
 						MethodName: "import",
-						Args: []ast.Node{
-							&ast.String{Value: strings.Join(n.Path, ".")},
+						Args: &ast.Args{
+							Args: []ast.Node{
+								&ast.String{Value: strings.Join(n.Path, ".")},
+							},
 						},
 					},
 				}
@@ -189,6 +214,7 @@ func DesugarAST(gn ast.Node) ast.Node {
 					Args: []ast.Node{
 						&ast.String{Value: n.Name.Name},
 						&ast.Lambda{
+							Name: n.Name.Name,
 							Args: n.Arguments,
 							Expr: n.Body,
 						},
@@ -218,7 +244,10 @@ func DesugarAST(gn ast.Node) ast.Node {
 					MethodName: "add_class",
 					Args: []ast.Node{
 						&ast.String{Value: n.Name},
-						&ast.Lambda{Expr: n.Body},
+						&ast.Lambda{
+							Name: n.Name + ".__body__",
+							Expr: n.Body,
+						},
 					},
 				},
 			}
@@ -241,6 +270,7 @@ func DesugarAST(gn ast.Node) ast.Node {
 			return &ast.Call{
 				Receiver:   n.Receiver,
 				MethodName: n.Name,
+				Args:       &ast.Args{},
 			}
 		default:
 			return n
@@ -251,7 +281,7 @@ func DesugarAST(gn ast.Node) ast.Node {
 func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 	switch n := gn.(type) {
 	case *ast.Import:
-		idx := g.findLiteral(strings.Join(n.Path, "."))
+		idx := g.findString(strings.Join(n.Path, "."))
 
 		g.seq = append(g.seq, insn.Builder.GetScoped(g.sp, idx))
 	case *ast.Self:
@@ -273,7 +303,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 
 		g.sp--
 
-		idx := g.findLiteral(n.Name)
+		_, idx := g.addCallsite(n.Name)
 
 		g.seq = append(g.seq, insn.Builder.CallOp(g.sp, g.sp, idx))
 	case *ast.Call:
@@ -284,20 +314,51 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 
 		ret := g.sp
 
-		for _, arg := range n.Args {
+		var (
+			pos   int
+			named int
+		)
+
+		cs, idx := g.addCallsite(n.MethodName)
+
+		for _, arg := range n.Args.Args {
 			g.nextReg()
 
-			err = g.GenerateScoped(arg, scope)
-			if err != nil {
-				return err
+			if na, ok := arg.(*ast.NamedArg); ok {
+				named++
+
+				err = g.GenerateScoped(na.Value, scope)
+				if err != nil {
+					return err
+				}
+
+				cs.KWTable = append(cs.KWTable, na.Name)
+			} else {
+				if named > 0 {
+					return fmt.Errorf("Positional args after named are not supported")
+				}
+
+				pos++
+
+				err = g.GenerateScoped(arg, scope)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
 		g.sp = ret
 
-		idx := g.findLiteral(n.MethodName)
+		if named == 0 {
+			g.seq = append(
+				g.seq,
+				insn.Builder.CallN(g.sp, g.sp, pos, idx))
+		} else {
+			g.seq = append(
+				g.seq,
+				insn.Builder.CallKW(g.sp, g.sp, pos, named, idx))
+		}
 
-		g.seq = append(g.seq, insn.Builder.CallN(g.sp, g.sp, len(n.Args), idx))
 	case *ast.UpCall:
 		err := g.GenerateScoped(n.Receiver, scope)
 		if err != nil {
@@ -319,7 +380,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 
 		g.sp = ret
 
-		idx := g.findLiteral(n.MethodName)
+		_, idx := g.addCallsite(n.MethodName)
 
 		g.seq = append(g.seq, insn.Builder.CallN(g.sp, g.sp, len(n.Args), idx))
 	case *ast.Block:
@@ -393,7 +454,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 
 		reg := g.sp
 
-		lit := g.findLiteral("++")
+		_, lit := g.addCallsite("++")
 
 		g.seq = append(g.seq, insn.Builder.Call0(reg, reg, lit))
 
@@ -405,7 +466,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 
 		reg := g.sp
 
-		lit := g.findLiteral("--")
+		_, lit := g.addCallsite("--")
 
 		g.seq = append(g.seq, insn.Builder.Call0(reg, reg, lit))
 
@@ -434,7 +495,7 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 
 		target := g.sp
 
-		for _, arg := range n.Args {
+		for _, arg := range n.Args.Args {
 			g.nextReg()
 
 			err := g.GenerateScoped(arg, scope)
@@ -443,13 +504,23 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 			}
 		}
 
-		g.seq = append(g.seq, insn.Builder.Invoke(target, target, len(n.Args)))
+		g.seq = append(g.seq, insn.Builder.Invoke(target, target, len(n.Args.Args)))
 		g.sp = target
 	case *ast.Lambda:
-		sub, err := NewGenerator()
+		sub, err := NewGenerator(g.env, n.Name)
 		if err != nil {
 			return err
 		}
+
+		var sig value.Signature
+
+		sig.Required = len(n.Args)
+
+		for _, arg := range n.Args {
+			sig.Args = append(sig.Args, arg.Name)
+		}
+
+		sub.signature = &sig
 
 		sub.scope = n.Scope
 
@@ -468,11 +539,11 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 		}
 
 	case *ast.ScopeVar:
-		idx := g.findLiteral(n.Name)
+		idx := g.findString(n.Name)
 
 		g.seq = append(g.seq, insn.Builder.GetScoped(g.sp, idx))
 	case *ast.String:
-		idx := g.findLiteral(n.Value)
+		idx := g.findString(n.Value)
 
 		g.seq = append(g.seq, insn.Builder.String(g.sp, idx))
 
@@ -507,12 +578,12 @@ func (g *Generator) GenerateScoped(gn ast.Node, scope *ast.Scope) error {
 			g.sp -= 2
 		}
 	case *ast.IVar:
-		idx := g.findLiteral(n.Name)
+		idx := g.findString(n.Name)
 
 		g.a(insn.Builder.GetIvar(g.sp, idx))
 
 	case *ast.IVarAssign:
-		idx := g.findLiteral(n.Name)
+		idx := g.findString(n.Name)
 
 		err := g.GenerateScoped(n.Value, scope)
 		if err != nil {

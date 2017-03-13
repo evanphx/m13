@@ -10,6 +10,7 @@ import (
 
 type VM struct {
 	registry *value.Registry
+	strings  value.StringLiterals
 	reg      []value.Value
 	top      int
 
@@ -67,7 +68,7 @@ func (vm *VM) LambdaClass() *value.Class {
 }
 
 func (vm *VM) StringClass() *value.Class {
-	return vm.registry.Class
+	return vm.registry.String
 }
 
 func (vm *VM) NewString(s string) *value.String {
@@ -78,6 +79,10 @@ func (vm *VM) NewString(s string) *value.String {
 	str.SetClass(vm.registry.String)
 
 	return str
+}
+
+func (vm *VM) InternString(s string) *value.String {
+	return vm.strings.Lookup(vm, s)
 }
 
 func (vm *VM) ListClass() *value.Class {
@@ -122,15 +127,19 @@ func (vm *VM) ExecuteContext(gctx context.Context, ctx value.ExecuteContext) (va
 	}
 
 	var (
-		ip   int
-		sp   = vm.top
-		reg  = vm.reg[sp:]
-		seq  = ctx.Code.Instructions
-		lits = ctx.Code.Literals
+		ip  int
+		sp  = vm.top
+		reg = vm.reg[sp:]
+		seq = ctx.Code.Instructions
 	)
 
+	// fmt.Printf("=> '%s' %p\n", ctx.Code.Name, ctx.Code)
+
 	// Restore the top of the register file
-	defer func(v int) { vm.top = v }(vm.top)
+	defer func(v int) {
+		vm.top = v
+		// fmt.Printf("<= '%s' %p\n", ctx.Code.Name, ctx.Code)
+	}(vm.top)
 
 	vm.top += ctx.Code.NumRegs
 
@@ -153,9 +162,8 @@ func (vm *VM) ExecuteContext(gctx context.Context, ctx value.ExecuteContext) (va
 				ip, seq,
 				i.Op(), i.R0(), i.R1(), i.R2(),
 				i.Data(), i.Rest1(), i.Rest2())
+			// fmt.Printf("regs: %d lits: %+v\n", len(reg), lits)
 		*/
-		// fmt.Printf("regs: %d lits: %+v\n", len(reg), lits)
-
 		switch i.Op() {
 		case insn.Noop:
 			// nothing
@@ -166,7 +174,7 @@ func (vm *VM) ExecuteContext(gctx context.Context, ctx value.ExecuteContext) (va
 		case insn.CopyReg:
 			reg[i.R0()] = reg[i.R1()]
 		case insn.Call0:
-			res, err := vm.callN(gctx, reg[i.R1()], nil, lits[i.R2()])
+			res, err := vm.callN(gctx, reg[i.R1()], nil, ctx.Code.Calls[i.R2()])
 			if err != nil {
 				return nil, err
 			}
@@ -179,7 +187,24 @@ func (vm *VM) ExecuteContext(gctx context.Context, ctx value.ExecuteContext) (va
 				gctx,
 				reg[i.R1()],
 				reg[i.R1()+1:int64(i.R1())+i.Rest2()+1],
-				lits[i.R2()],
+				ctx.Code.Calls[i.R2()],
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			reg[i.R0()] = res
+		case insn.CallKW:
+			argStart := reg[i.R1()+1:]
+			posArgs := argStart[:i.R3()]
+			kwArgs := argStart[i.R3() : int64(i.R3())+i.Rest3()]
+
+			res, err := vm.callKW(
+				gctx,
+				reg[i.R1()],
+				posArgs,
+				kwArgs,
+				ctx.Code.Calls[i.R2()],
 			)
 			if err != nil {
 				return nil, err
@@ -213,9 +238,9 @@ func (vm *VM) ExecuteContext(gctx context.Context, ctx value.ExecuteContext) (va
 		case insn.Self:
 			reg[i.R0()] = ctx.Self
 		case insn.String:
-			reg[i.R0()] = vm.NewString(ctx.Code.Literals[i.R1()])
+			reg[i.R0()] = ctx.Code.Strings[i.R1()]
 		case insn.GetScoped:
-			reg[i.R0()] = vm.getScoped(gctx, ctx.Code.Literals[i.R1()])
+			reg[i.R0()] = vm.getScoped(gctx, ctx.Code.Strings[i.R1()].String)
 		case insn.NewList:
 			reg[i.R0()] = value.NewList(vm, i.R1())
 		case insn.ListAppend:
@@ -226,10 +251,10 @@ func (vm *VM) ExecuteContext(gctx context.Context, ctx value.ExecuteContext) (va
 			vm.setMap(reg[i.R0()], reg[i.R1()], reg[i.R1()+1])
 		case insn.SetIvar:
 			no := ctx.Self.(*value.NativeObject)
-			no.Ivars[no.Class(vm).Ivars[ctx.Code.Literals[i.R1()]]] = reg[i.R0()]
+			no.Ivars[no.Class(vm).Ivars[ctx.Code.Strings[i.R1()].String]] = reg[i.R0()]
 		case insn.GetIvar:
 			no := ctx.Self.(*value.NativeObject)
-			reg[i.R0()] = no.Ivars[no.Class(vm).Ivars[ctx.Code.Literals[i.R1()]]]
+			reg[i.R0()] = no.Ivars[no.Class(vm).Ivars[ctx.Code.Strings[i.R1()].String]]
 		default:
 			panic(fmt.Sprintf("unknown op: %s", i.Op()))
 		}
@@ -271,7 +296,11 @@ func (vm *VM) createLambda(ctx value.ExecuteContext, args int, refs []*value.Ref
 func (vm *VM) getMirror(ctx context.Context, obj value.Value) value.Value {
 	cls := vm.Registry().Mirror
 
-	val, err := vm.callN(ctx, cls, []value.Value{obj}, "resolve")
+	call := &value.CallSite{
+		Name: "resolve",
+	}
+
+	val, err := vm.callN(ctx, cls, []value.Value{obj}, call)
 	if err != nil {
 		panic(err)
 	}

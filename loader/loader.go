@@ -123,7 +123,7 @@ func (lp *Package) Exec(ctx context.Context, env value.Env, r *value.Registry) (
 	ctx = value.SetScoped(ctx, "stdout", value.NewIO(env, os.Stdout))
 
 	for _, tree := range lp.trees {
-		g, err := gen.NewGenerator()
+		g, err := gen.NewGenerator(env, "__top__")
 		if err != nil {
 			return nil, err
 		}

@@ -162,9 +162,9 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, "b", n.MethodName)
 
-		require.Equal(t, 1, len(n.Args))
+		require.Equal(t, 1, len(n.Args.Args))
 
-		a, ok := n.Args[0].(*ast.Variable)
+		a, ok := n.Args.Args[0].(*ast.Variable)
 		require.True(t, ok)
 
 		assert.Equal(t, "c", a.Name)
@@ -189,27 +189,61 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, "b", n.MethodName)
 
-		require.Equal(t, 4, len(n.Args))
+		require.Equal(t, 4, len(n.Args.Args))
 
-		x, ok := n.Args[0].(*ast.Variable)
+		x, ok := n.Args.Args[0].(*ast.Variable)
 		require.True(t, ok)
 
 		assert.Equal(t, "c", x.Name)
 
-		d, ok := n.Args[1].(*ast.Variable)
+		d, ok := n.Args.Args[1].(*ast.Variable)
 		require.True(t, ok)
 
 		assert.Equal(t, "d", d.Name)
 
-		d, ok = n.Args[2].(*ast.Variable)
+		d, ok = n.Args.Args[2].(*ast.Variable)
 		require.True(t, ok)
 
 		assert.Equal(t, "e", d.Name)
 
-		d, ok = n.Args[3].(*ast.Variable)
+		d, ok = n.Args.Args[3].(*ast.Variable)
 		require.True(t, ok)
 
 		assert.Equal(t, "f", d.Name)
+	})
+
+	n.It("parses a method call with named args", func() {
+		src := `a.b(c=1,d=2)`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		n, ok := tree.(*ast.Call)
+		require.True(t, ok)
+
+		c, ok := n.Receiver.(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", c.Name)
+
+		assert.Equal(t, "b", n.MethodName)
+
+		require.Equal(t, 2, len(n.Args.Args))
+
+		na := n.Args.Args[0].(*ast.NamedArg)
+
+		assert.Equal(t, "c", na.Name)
+
+		assert.Equal(t, int64(1), na.Value.(*ast.Integer).Value)
+
+		na = n.Args.Args[1].(*ast.NamedArg)
+
+		assert.Equal(t, "d", na.Name)
+
+		assert.Equal(t, int64(2), na.Value.(*ast.Integer).Value)
 	})
 
 	n.It("parses a chained method call", func() {
@@ -251,7 +285,7 @@ func TestParser(t *testing.T) {
 
 		assert.Equal(t, "c", n.MethodName)
 
-		require.Equal(t, 2, len(n.Args))
+		require.Equal(t, 2, len(n.Args.Args))
 	})
 
 	n.It("parser a local variable assignment", func() {
@@ -1010,9 +1044,9 @@ os.stdout().puts("hello m13");`
 
 		assert.Equal(t, "a", v.Name)
 
-		require.Equal(t, 1, len(inv.Args))
+		require.Equal(t, 1, len(inv.Args.Args))
 
-		lit, ok := inv.Args[0].(*ast.Integer)
+		lit, ok := inv.Args.Args[0].(*ast.Integer)
 		require.True(t, ok)
 
 		assert.Equal(t, int64(1), lit.Value)
@@ -1034,7 +1068,7 @@ os.stdout().puts("hello m13");`
 
 		assert.Equal(t, "a", v.Name)
 
-		require.Equal(t, 0, len(inv.Args))
+		require.Equal(t, 0, len(inv.Args.Args))
 	})
 
 	n.It("parses a scope/dynamic variable", func() {
@@ -1215,9 +1249,9 @@ os.stdout().puts("hello m13");`
 
 		assert.Equal(t, "[]", call.MethodName)
 
-		require.Equal(t, 1, len(call.Args))
+		require.Equal(t, 1, len(call.Args.Args))
 
-		assert.Equal(t, "bar", call.Args[0].(*ast.String).Value)
+		assert.Equal(t, "bar", call.Args.Args[0].(*ast.String).Value)
 	})
 
 	n.Meow()
@@ -1471,9 +1505,9 @@ func TestMethodParses(t *testing.T) {
 
 		assert.Equal(t, "b", n.MethodName)
 
-		require.Equal(t, 1, len(n.Args))
+		require.Equal(t, 1, len(n.Args.Args))
 
-		i, ok := n.Args[0].(*ast.Integer)
+		i, ok := n.Args.Args[0].(*ast.Integer)
 		require.True(t, ok)
 
 		assert.Equal(t, int64(3), i.Value)
@@ -1498,19 +1532,54 @@ func TestMethodParses(t *testing.T) {
 
 		assert.Equal(t, "b", n.MethodName)
 
-		require.Equal(t, 2, len(n.Args))
+		require.Equal(t, 2, len(n.Args.Args))
 
-		i, ok := n.Args[0].(*ast.String)
+		i, ok := n.Args.Args[0].(*ast.String)
 		require.True(t, ok)
 
 		assert.Equal(t, "d", i.Value)
 
-		l, ok := n.Args[1].(*ast.Lambda)
+		l, ok := n.Args.Args[1].(*ast.Lambda)
 		require.True(t, ok)
 
 		require.Equal(t, 1, len(l.Args))
 
 		assert.Equal(t, "x", l.Args[0].Name)
+	})
+
+	n.It("parses a method call with positional and keyword args", func() {
+		src := `a.b(1,c=2)`
+
+		parser, err := NewParser(src)
+		require.NoError(t, err)
+
+		tree, err := parser.Parse()
+		require.NoError(t, err)
+
+		n, ok := tree.(*ast.Call)
+		require.True(t, ok)
+
+		c, ok := n.Receiver.(*ast.Variable)
+		require.True(t, ok)
+
+		assert.Equal(t, "a", c.Name)
+
+		assert.Equal(t, "b", n.MethodName)
+
+		require.Equal(t, 2, len(n.Args.Args))
+
+		i, ok := n.Args.Args[0].(*ast.Integer)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(1), i.Value)
+
+		arg := n.Args.Args[1].(*ast.NamedArg)
+		assert.Equal(t, "c", arg.Name)
+
+		i2, ok := arg.Value.(*ast.Integer)
+		require.True(t, ok)
+
+		assert.Equal(t, int64(2), i2.Value)
 	})
 
 	n.Meow()

@@ -28,6 +28,7 @@ const (
 	SetIvar      Op = 21
 	NewMap       Op = 22
 	SetMap       Op = 23
+	CallKW       Op = 24
 )
 
 type Instruction int64
@@ -36,15 +37,19 @@ const (
 	OpMask    = 0xFF
 	Reg0Shift = 8
 	Reg0Mask  = 0xFF
-	DataShift = 16
+	DataShift = Reg0Shift + 8
 
-	Reg1Shift  = 16
+	Reg1Shift  = Reg0Shift + 8
 	Reg1Mask   = 0xFF
-	Rest1Shift = 32
+	Rest1Shift = Reg1Shift + 8
 
-	Reg2Shift  = 24
+	Reg2Shift  = Reg1Shift + 8
 	Reg2Mask   = 0xFF
-	Rest2Shift = 32
+	Rest2Shift = Reg2Shift + 8
+
+	Reg3Shift  = Reg2Shift + 8
+	Reg3Mask   = 0xFF
+	Rest3Shift = Reg3Shift + 8
 )
 
 func (i Instruction) Op() Op {
@@ -63,6 +68,10 @@ func (i Instruction) R2() int {
 	return int((i >> Reg2Shift) & Reg2Mask)
 }
 
+func (i Instruction) R3() int {
+	return int((i >> Reg3Shift) & Reg3Mask)
+}
+
 func (i Instruction) Data() int64 {
 	return int64(i >> DataShift)
 }
@@ -73,6 +82,10 @@ func (i Instruction) Rest1() int64 {
 
 func (i Instruction) Rest2() int64 {
 	return int64(i >> Rest2Shift)
+}
+
+func (i Instruction) Rest3() int64 {
+	return int64(i >> Rest3Shift)
 }
 
 type BuilderType struct{}
@@ -128,6 +141,19 @@ func (_ BuilderType) CallN(dest, base, cnt, lit int) Instruction {
 	out |= (Instruction(base) << Reg1Shift)
 	out |= (Instruction(lit) << Reg2Shift)
 	out |= (Instruction(cnt) << Rest2Shift)
+
+	return out
+}
+
+func (_ BuilderType) CallKW(dest, base, pos, kw, lit int) Instruction {
+	var out Instruction
+
+	out |= Instruction(CallKW)
+	out |= (Instruction(dest) << Reg0Shift)
+	out |= (Instruction(base) << Reg1Shift)
+	out |= (Instruction(lit) << Reg2Shift)
+	out |= (Instruction(pos) << Reg3Shift)
+	out |= (Instruction(kw) << Rest3Shift)
 
 	return out
 }

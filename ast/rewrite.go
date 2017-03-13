@@ -5,7 +5,9 @@ import "reflect"
 func Rewrite(n Node, re func(Node) Node) Node {
 	n = re(n)
 
-	v := reflect.ValueOf(n).Elem()
+	rv := reflect.ValueOf(n)
+
+	v := rv.Elem()
 
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
@@ -14,8 +16,16 @@ func Rewrite(n Node, re func(Node) Node) Node {
 
 		switch st := sv.(type) {
 		case Node:
+			if f.IsNil() {
+				continue
+			}
+
 			f.Set(reflect.ValueOf(Rewrite(st, re)))
 		case []Node:
+			if f.IsNil() {
+				continue
+			}
+
 			for j := 0; j < len(st); j++ {
 				st[j] = Rewrite(st[j], re)
 			}

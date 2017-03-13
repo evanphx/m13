@@ -16,4 +16,29 @@ test.spec "Arguments", s => {
     c.expect(l.at(1)) == 2
     c.expect(l.at(2)) == 3
   }
+
+  s.it "handles named arguments", c => {
+    x = basic.Simple.new()
+    l = x.args(c=3,a=1,b=2)
+
+    c.expect(l.at(0)) == 1
+    c.expect(l.at(1)) == 2
+    c.expect(l.at(2)) == 3
+  }
+
+  s.it "handles some named arguments", c => {
+    x = basic.Simple.new()
+    l = x.args(1,c=3,b=2)
+
+    c.expect(l.at(0)) == 1
+    c.expect(l.at(1)) == 2
+    c.expect(l.at(2)) == 3
+
+    x = basic.Simple.new()
+    l = x.args(1,2,c=3)
+
+    c.expect(l.at(0)) == 1
+    c.expect(l.at(1)) == 2
+    c.expect(l.at(2)) == 3
+  }
 }

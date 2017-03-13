@@ -27,7 +27,12 @@ func (e *Evaluator) Eval(code string) (value.Value, error) {
 		return nil, err
 	}
 
-	g, err := gen.NewGenerator()
+	vm, err := vm.NewVM()
+	if err != nil {
+		return nil, err
+	}
+
+	g, err := gen.NewGenerator(vm, "eval")
 	if err != nil {
 		return nil, err
 	}
@@ -39,11 +44,6 @@ func (e *Evaluator) Eval(code string) (value.Value, error) {
 
 	ctx := value.ExecuteContext{
 		Code: co,
-	}
-
-	vm, err := vm.NewVM()
-	if err != nil {
-		return nil, err
 	}
 
 	return vm.ExecuteContext(context.TODO(), ctx)

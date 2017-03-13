@@ -77,10 +77,27 @@ func (s *Scope) RefIndex(name string) int {
 	return -1
 }
 
+type Args struct {
+	Args []Node
+}
+
+func (a *Args) NodeType() string {
+	return "args"
+}
+
+type NamedArg struct {
+	Name  string
+	Value Node
+}
+
+func (a NamedArg) NodeType() string {
+	return "namedarg"
+}
+
 type Call struct {
 	Receiver   Node
 	MethodName string
-	Args       []Node
+	Args       *Args
 }
 
 func (v *Call) NodeType() string {
@@ -99,7 +116,7 @@ func (v *UpCall) NodeType() string {
 
 type Invoke struct {
 	Var  Node
-	Args []Node
+	Args *Args
 }
 
 func (v *Invoke) NodeType() string {

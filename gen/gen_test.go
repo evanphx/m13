@@ -14,7 +14,7 @@ func TestGen(t *testing.T) {
 	n := neko.Start(t)
 
 	n.It("generates bytecode to access self", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		err = g.Generate(&ast.Self{})
@@ -31,7 +31,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("generates bytecode to store an int", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		err = g.Generate(&ast.Integer{Value: 1})
@@ -49,7 +49,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("generates bytecode to store a local", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.Assign{
@@ -78,7 +78,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("generates bytecode for an operator", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.Op{
@@ -113,17 +113,19 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, 0, i.R1())
 		assert.Equal(t, 0, i.R2())
 		assert.Equal(t, int64(1), i.Rest2())
-		assert.Equal(t, "+", g.literals[0])
+		assert.Equal(t, "+", g.calls[0].Name)
 	})
 
 	n.It("generates bytecode for a call", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.Call{
 			MethodName: "+",
 			Receiver:   &ast.Integer{Value: 3},
-			Args:       []ast.Node{&ast.Integer{Value: 4}},
+			Args: &ast.Args{
+				Args: []ast.Node{&ast.Integer{Value: 4}},
+			},
 		}
 
 		err = g.Generate(tree)
@@ -152,11 +154,11 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, 0, i.R1())
 		assert.Equal(t, 0, i.R2())
 		assert.Equal(t, int64(1), i.Rest2())
-		assert.Equal(t, "+", g.literals[0])
+		assert.Equal(t, "+", g.calls[0].Name)
 	})
 
 	n.It("generates bytecode for an upcall", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.UpCall{
@@ -190,11 +192,11 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, 0, i.R1())
 		assert.Equal(t, 0, i.R2())
 		assert.Equal(t, int64(0), i.Rest2())
-		assert.Equal(t, "class", g.literals[0])
+		assert.Equal(t, "class", g.calls[0].Name)
 	})
 
 	n.It("generates bytecode for an if", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.If{
@@ -233,7 +235,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("generates bytecode for an inc of a variable", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.Block{
@@ -276,11 +278,11 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, 0, i.R2())
 		assert.Equal(t, int64(0), i.Rest2())
 
-		assert.Equal(t, "++", g.literals[0])
+		assert.Equal(t, "++", g.calls[0].Name)
 	})
 
 	n.It("generates bytecode for a dec of a variable", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.Block{
@@ -323,11 +325,11 @@ func TestGen(t *testing.T) {
 		assert.Equal(t, 0, i.R2())
 		assert.Equal(t, int64(0), i.Rest2())
 
-		assert.Equal(t, "--", g.literals[0])
+		assert.Equal(t, "--", g.calls[0].Name)
 	})
 
 	n.It("generates bytecode for a while", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.While{
@@ -371,7 +373,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("generates bytecode for a lambda", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.Lambda{
@@ -400,7 +402,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("generates bytecode for a lambda with args", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.Lambda{
@@ -474,7 +476,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("generates bytecode for a lambda with a capture local", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.Block{
@@ -531,7 +533,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("declares locals for the whole scope, not from assign point on", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.Block{
@@ -588,7 +590,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("promotes refs through creating lambdas", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		tree := &ast.Block{
@@ -699,7 +701,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("uses refs for only captured locals", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		var (
@@ -872,7 +874,7 @@ func TestGen(t *testing.T) {
 	})
 
 	n.It("generates bytecode for an invoke", func() {
-		g, err := NewGenerator()
+		g, err := NewGenerator(nil, "test")
 		require.NoError(t, err)
 
 		err = g.Generate(&ast.Block{
@@ -883,8 +885,10 @@ func TestGen(t *testing.T) {
 				},
 				&ast.Invoke{
 					Var: &ast.Variable{Name: "a"},
-					Args: []ast.Node{
-						&ast.Integer{Value: 1},
+					Args: &ast.Args{
+						Args: []ast.Node{
+							&ast.Integer{Value: 1},
+						},
 					},
 				},
 			},

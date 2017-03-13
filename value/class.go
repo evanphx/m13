@@ -113,7 +113,7 @@ func initClass(r *Package, cls *Class) {
 	cls.AddMethod(&MethodDescriptor{
 		Name: "new",
 		Signature: Signature{
-			Required: -1,
+			Required: 0,
 		},
 		Func: func(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
 			sc := recv.(*Class)
@@ -217,7 +217,8 @@ func initClassMirror(r *Package, cls *Class) {
 			lamb := args[1].(*Lambda)
 
 			rc.AddMethod(&MethodDescriptor{
-				Name: name.String,
+				Name:      name.String,
+				Signature: *lamb.Code.Signature,
 				Func: func(ctx context.Context, env Env, recv Value, args []Value) (Value, error) {
 					return env.InvokeLambda(ctx, lamb.RedirectSelf(recv), args)
 				},

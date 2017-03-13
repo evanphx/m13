@@ -42,7 +42,7 @@ func main() {
 			return
 		}
 
-		g, err := gen.NewGenerator()
+		g, err := gen.NewGenerator(nil, "insp")
 		if err != nil {
 			fmt.Printf("Error creating generator\n")
 			return

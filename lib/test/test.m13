@@ -57,7 +57,7 @@ class Spec {
   def run() {
     $stdout.puts("  " + @name)
     @cases.each(c => {
-      $stdout.puts("• " + c.description)
+      $stdout.puts("• " + c.description.^inspect)
       c.run
     })
   }
